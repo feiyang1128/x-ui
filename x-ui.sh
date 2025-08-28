@@ -94,7 +94,7 @@ before_show_menu() {
 }
 
 install() {
-    bash <(curl -Ls https://raw.githubusercontent.com/vaxilu/x-ui/master/install.sh)
+    bash <(curl -Ls https://xui.feiyang.gq/install.sh)
     if [[ $? == 0 ]]; then
         if [[ $# == 0 ]]; then
             start
@@ -113,7 +113,7 @@ update() {
         fi
         return 0
     fi
-    bash <(curl -Ls https://raw.githubusercontent.com/vaxilu/x-ui/master/install.sh)
+    bash <(curl -Ls https://xui.feiyang.gq/install.sh)
     if [[ $? == 0 ]]; then
         LOGI "更新完成，已自动重启面板 "
         exit 0
@@ -294,15 +294,8 @@ migrate_v2_ui() {
     before_show_menu
 }
 
-install_bbr() {
-    # temporary workaround for installing bbr
-    bash <(curl -L -s https://raw.githubusercontent.com/teddysun/across/master/bbr.sh)
-    echo ""
-    before_show_menu
-}
-
 update_shell() {
-    wget -O /usr/bin/x-ui -N --no-check-certificate https://github.com/vaxilu/x-ui/raw/master/x-ui.sh
+    wget -O /usr/bin/x-ui -N --no-check-certificate https://xui.feiyang.gq/x-ui.sh
     if [[ $? != 0 ]]; then
         echo ""
         LOGE "下载脚本失败，请检查本机能否连接 Github"
@@ -524,8 +517,7 @@ show_menu() {
   ${green}13.${plain} 设置 x-ui 开机自启
   ${green}14.${plain} 取消 x-ui 开机自启
 ————————————————
-  ${green}15.${plain} 一键安装 bbr (最新内核)
-  ${green}16.${plain} 一键申请SSL证书(acme申请)
+  ${green}15.${plain} 一键申请SSL证书(acme申请)
  "
     show_status
     echo && read -p "请输入选择 [0-16]: " num
@@ -577,9 +569,6 @@ show_menu() {
         check_install && disable
         ;;
     15)
-        install_bbr
-        ;;
-    16)
         ssl_cert_issue
         ;;
     *)
