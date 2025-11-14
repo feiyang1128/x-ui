@@ -40,13 +40,29 @@ jobs:
           echo "Next release version: $NEXT_VERSION"
           echo "NEXT_VERSION=$NEXT_VERSION" >> $GITHUB_ENV
 
-      - name: Check if tag exists
+      - name: Check if tag exists and increment if necessary
         run: |
-          # 检查标签是否已经存在
-          if git rev-parse "$NEXT_VERSION" >/dev/null 2>&1; then
-            echo "Tag $NEXT_VERSION already exists. Skipping release creation."
-            exit 1  # 如果标签存在，退出并跳过创建 Release
-          fi
+          # 检查标签是否已经存在，如果存在则递增标签
+          TAG_EXISTS=true
+          ATTEMPT_COUNT=0
+          while git rev-parse "$NEXT_VERSION" >/dev/null 2>&1; do
+            # 标签已经存在，递增次版本号
+            VERSION_NUM=$(echo $NEXT_VERSION | sed 's/^v//')
+            VERSION_MAJOR=$(echo $VERSION_NUM | cut -d'.' -f1)
+            VERSION_MINOR=$(echo $VERSION_NUM | cut -d'.' -f2)
+            VERSION_MINOR=$((VERSION_MINOR + 1))  # 递增次版本号
+            NEXT_VERSION="v$VERSION_MAJOR.$VERSION_MINOR"
+            ATTEMPT_COUNT=$((ATTEMPT_COUNT + 1))
+
+            # 限制最大尝试次数，避免无限循环
+            if [[ $ATTEMPT_COUNT -ge 10 ]]; then
+              echo "Max attempts reached. Could not find an available tag."
+              exit 1
+            fi
+          done
+
+          echo "Next available tag: $NEXT_VERSION"
+          echo "NEXT_VERSION=$NEXT_VERSION" >> $GITHUB_ENV
 
       - name: Create Release
         id: create_release
