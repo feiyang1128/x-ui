@@ -43,7 +43,6 @@ jobs:
       - name: Check if tag exists and increment if necessary
         run: |
           # 检查标签是否已经存在，如果存在则递增标签
-          TAG_EXISTS=true
           ATTEMPT_COUNT=0
           while git rev-parse "$NEXT_VERSION" >/dev/null 2>&1; do
             # 标签已经存在，递增次版本号
