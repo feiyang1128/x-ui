@@ -1,9 +1,11 @@
 name: Release X-ui
 
 on:
+  # 每次代码推送到 main 分支时触发
   push:
     branches:
       - main
+  # 手动触发工作流
   workflow_dispatch:
 
 jobs:
@@ -30,20 +32,21 @@ jobs:
             VERSION_NUM=$(echo $LATEST_TAG | sed 's/^v//')
             VERSION_MAJOR=$(echo $VERSION_NUM | cut -d'.' -f1)
             VERSION_MINOR=$(echo $VERSION_NUM | cut -d'.' -f2)
-
-            # 判断次版本号是否为 9，如果是，递增主版本号并重置次版本号为 0
-            if [ "$VERSION_MINOR" -ge 9 ]; then
-                VERSION_MAJOR=$((VERSION_MAJOR + 1))  # 主版本号递增
-                VERSION_MINOR=0  # 次版本号重置为 0
-            else
-                VERSION_MINOR=$((VERSION_MINOR + 1))  # 次版本号递增
-            fi
-
+            VERSION_MINOR=$((VERSION_MINOR + 1))  # 递增次版本号
             NEXT_VERSION="v$VERSION_MAJOR.$VERSION_MINOR"
           fi
 
+          # 输出新版本号并设置到 GitHub 环境变量
           echo "Next release version: $NEXT_VERSION"
           echo "NEXT_VERSION=$NEXT_VERSION" >> $GITHUB_ENV
+
+      - name: Check if tag exists
+        run: |
+          # 检查标签是否已经存在
+          if git rev-parse "$NEXT_VERSION" >/dev/null 2>&1; then
+            echo "Tag $NEXT_VERSION already exists. Skipping release creation."
+            exit 1  # 如果标签存在，退出并跳过创建 Release
+          fi
 
       - name: Create Release
         id: create_release
