@@ -1,8 +1,11 @@
 name: Release X-ui
+
 on:
+  # 每次代码推送到 main 分支时触发
   push:
-    tags:
-      - 0.*
+    branches:
+      - main
+  # 手动触发工作流
   workflow_dispatch:
 
 jobs:
@@ -11,28 +14,56 @@ jobs:
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Get latest release tag
+        id: get_latest_tag
+        run: |
+          # 获取最新的 tag
+          LATEST_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+' | head -n 1)
+          echo "Latest tag: $LATEST_TAG"
+          
+          if [[ -z "$LATEST_TAG" ]]; then
+            # 如果没有找到任何版本号（比如第一次发布），则默认是 v1.0
+            NEXT_VERSION="v1.0"
+          else
+            # 提取版本号并递增
+            VERSION_NUM=$(echo $LATEST_TAG | sed 's/^v//')
+            VERSION_MAJOR=$(echo $VERSION_NUM | cut -d'.' -f1)
+            VERSION_MINOR=$(echo $VERSION_NUM | cut -d'.' -f2)
+            VERSION_MINOR=$((VERSION_MINOR + 1))  # 递增次版本号
+            NEXT_VERSION="v$VERSION_MAJOR.$VERSION_MINOR"
+          fi
+
+          echo "Next release version: $NEXT_VERSION"
+          echo "NEXT_VERSION=$NEXT_VERSION" >> $GITHUB_ENV
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
         with:
-          tag_name: ${{ github.ref }}
-          release_name: ${{ github.ref }}
-          draft: true
-          prerelease: true
+          tag_name: ${{ env.NEXT_VERSION }}  # 使用计算得到的下一个版本号作为标签
+          release_name: ${{ env.NEXT_VERSION }}
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   linuxamd64build:
-    name: build x-ui amd64 version
-    needs: release
+    name: Build x-ui amd64 version
+    needs: release  # 依赖创建 release 的步骤
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
           go-version: 1.18
-      - name: build linux amd64 version
+
+      - name: Build linux amd64 version
         run: |
           CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o xui-release -v main.go
           mkdir x-ui
@@ -49,10 +80,12 @@ jobs:
           wget https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat
           wget https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat
           mv xray xray-linux-amd64
-          cd .. 
-      - name: package
+          cd ..
+
+      - name: Package amd64 version
         run: tar -zcvf x-ui-linux-amd64.tar.gz x-ui
-      - name: upload
+
+      - name: Upload amd64 release asset
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ needs.release.outputs.upload_url }}
@@ -63,16 +96,19 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   linuxarm64build:
-    name: build x-ui arm64 version
-    needs: release
+    name: Build x-ui arm64 version
+    needs: release  # 依赖创建 release 的步骤
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
           go-version: 1.18
-      - name: build linux arm64 version
+
+      - name: Build linux arm64 version
         run: |
           sudo apt-get update
           sudo apt install gcc-aarch64-linux-gnu
@@ -91,10 +127,12 @@ jobs:
           wget https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat
           wget https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat
           mv xray xray-linux-arm64
-          cd .. 
-      - name: package
+          cd ..
+
+      - name: Package arm64 version
         run: tar -zcvf x-ui-linux-arm64.tar.gz x-ui
-      - name: upload
+
+      - name: Upload arm64 release asset
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ needs.release.outputs.upload_url }}
