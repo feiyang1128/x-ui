@@ -48,7 +48,7 @@ jobs:
           draft: false
           prerelease: false
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
   linuxamd64build:
     name: Build x-ui amd64 version
@@ -93,7 +93,7 @@ jobs:
           asset_name: x-ui-linux-amd64.tar.gz
           asset_content_type: application/gzip
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
   linuxarm64build:
     name: Build x-ui arm64 version
@@ -140,4 +140,4 @@ jobs:
           asset_name: x-ui-linux-arm64.tar.gz
           asset_content_type: application/gzip
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
