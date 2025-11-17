@@ -171,7 +171,7 @@ func (s *ServerService) GetStatus(lastStatus *Status) *Status {
 }
 
 func (s *ServerService) GetXrayVersions() ([]string, error) {
-	url := "https://ghproxy.feiyang.gq/https://api.github.com/repos/XTLS/Xray-core/releases"
+	url := "https://gh-proxy.org/https://api.github.com/repos/XTLS/Xray-core/releases"
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
@@ -214,7 +214,7 @@ func (s *ServerService) downloadXRay(version string) (string, error) {
 	}
 
 	fileName := fmt.Sprintf("Xray-%s-%s.zip", osName, arch)
-	url := fmt.Sprintf("https://ghproxy.feiyang.gq/https://github.com/XTLS/Xray-core/releases/download/%s/%s", version, fileName)
+	url := fmt.Sprintf("https://gh-proxy.org/https://github.com/XTLS/Xray-core/releases/download/%s/%s", version, fileName)
 	resp, err := http.Get(url)
 	if err != nil {
 		return "", err
