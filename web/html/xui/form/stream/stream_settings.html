@@ -2,7 +2,7 @@
 <!-- select stream network -->
 <a-form layout="inline">
     <a-form-item label="传输">
-        <a-select v-model="inbound.stream.network" @change="streamNetworkChange">
+        <a-select v-if="inbound.protocol !== Protocols.HYSTERIA2" v-model="inbound.stream.network" @change="streamNetworkChange">
             <a-select-option value="tcp">tcp</a-select-option>
             <a-select-option value="kcp">kcp</a-select-option>
             <a-select-option value="ws">ws</a-select-option>
@@ -10,6 +10,7 @@
             <a-select-option value="quic">quic</a-select-option>
             <a-select-option value="grpc">grpc</a-select-option>
         </a-select>
+        <a-tag v-else color="blue">hysteria2</a-tag>
     </a-form-item>
 </a-form>
 
@@ -41,5 +42,10 @@
 <!-- grpc -->
 <template v-if="inbound.stream.network === 'grpc'">
     {{template "form/streamGRPC"}}
+</template>
+
+<!-- hysteria -->
+<template v-if="inbound.stream.network === 'hysteria'">
+    {{template "form/streamHysteria"}}
 </template>
 {{end}}

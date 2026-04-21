@@ -1,6 +1,7 @@
 const Protocols = {
     VMESS: 'vmess',
     VLESS: 'vless',
+    HYSTERIA2: 'hysteria2',
     TROJAN: 'trojan',
     SHADOWSOCKS: 'shadowsocks',
     DOKODEMO: 'dokodemo-door',
@@ -51,6 +52,10 @@ Object.freeze(SSMethods);
 Object.freeze(RULE_IP);
 Object.freeze(RULE_DOMAIN);
 Object.freeze(FLOW_CONTROL);
+
+function normalizeProtocol(protocol) {
+    return protocol === 'hysteria' ? Protocols.HYSTERIA2 : protocol;
+}
 
 class XrayCommonClass {
 
@@ -415,6 +420,31 @@ class GrpcStreamSettings extends XrayCommonClass {
     }
 }
 
+class HysteriaStreamSettings extends XrayCommonClass {
+    constructor(version=2, auth='', udpIdleTimeout=60) {
+        super();
+        this.version = version;
+        this.auth = auth;
+        this.udpIdleTimeout = udpIdleTimeout;
+    }
+
+    static fromJson(json={}) {
+        return new HysteriaStreamSettings(
+            ObjectUtil.isEmpty(json.version) ? 2 : json.version,
+            json.auth,
+            ObjectUtil.isEmpty(json.udpIdleTimeout) ? 60 : json.udpIdleTimeout,
+        );
+    }
+
+    toJson() {
+        return {
+            version: this.version,
+            udpIdleTimeout: this.udpIdleTimeout,
+            auth: ObjectUtil.isEmpty(this.auth) ? undefined : this.auth,
+        };
+    }
+}
+
 class TlsStreamSettings extends XrayCommonClass {
     constructor(serverName='',
                 certificates=[new TlsStreamSettings.Cert()], alpn=[]) {
@@ -505,6 +535,7 @@ class StreamSettings extends XrayCommonClass {
                 httpSettings=new HttpStreamSettings(),
                 quicSettings=new QuicStreamSettings(),
                 grpcSettings=new GrpcStreamSettings(),
+                hysteriaSettings=new HysteriaStreamSettings(),
                 ) {
         super();
         this.network = network;
@@ -516,6 +547,7 @@ class StreamSettings extends XrayCommonClass {
         this.http = httpSettings;
         this.quic = quicSettings;
         this.grpc = grpcSettings;
+        this.hysteria = hysteriaSettings;
     }
 
     get isTls() {
@@ -559,6 +591,7 @@ class StreamSettings extends XrayCommonClass {
             HttpStreamSettings.fromJson(json.httpSettings),
             QuicStreamSettings.fromJson(json.quicSettings),
             GrpcStreamSettings.fromJson(json.grpcSettings),
+            HysteriaStreamSettings.fromJson(json.hysteriaSettings),
         );
     }
 
@@ -575,6 +608,7 @@ class StreamSettings extends XrayCommonClass {
             httpSettings: network === 'http' ? this.http.toJson() : undefined,
             quicSettings: network === 'quic' ? this.quic.toJson() : undefined,
             grpcSettings: network === 'grpc' ? this.grpc.toJson() : undefined,
+            hysteriaSettings: network === 'hysteria' ? this.hysteria.toJson() : undefined,
         };
     }
 }
@@ -612,6 +646,7 @@ class Inbound extends XrayCommonClass {
         super();
         this.port = port;
         this.listen = listen;
+        protocol = normalizeProtocol(protocol);
         this._protocol = protocol;
         this.settings = ObjectUtil.isEmpty(settings) ? Inbound.Settings.getSettings(protocol) : settings;
         this.stream = streamSettings;
@@ -624,9 +659,17 @@ class Inbound extends XrayCommonClass {
     }
 
     set protocol(protocol) {
+        protocol = normalizeProtocol(protocol);
         this._protocol = protocol;
         this.settings = Inbound.Settings.getSettings(protocol);
+        if (protocol !== Protocols.HYSTERIA2 && this.stream.network === 'hysteria') {
+            this.stream.network = 'tcp';
+        }
         if (protocol === Protocols.TROJAN) {
+            this.tls = true;
+        }
+        if (protocol === Protocols.HYSTERIA2) {
+            this.stream.network = 'hysteria';
             this.tls = true;
         }
     }
@@ -691,6 +734,10 @@ class Inbound extends XrayCommonClass {
         return this.network === "grpc";
     }
 
+    get isHysteria() {
+        return this.network === "hysteria";
+    }
+
     get isH2() {
         return this.network === "http";
     }
@@ -743,6 +790,8 @@ class Inbound extends XrayCommonClass {
     // Trojan & Shadowsocks & Socks & HTTP
     get password() {
         switch (this.protocol) {
+            case Protocols.HYSTERIA2:
+                return ObjectUtil.isEmpty(this.settings.auth) ? this.stream.hysteria.auth : this.settings.auth;
             case Protocols.TROJAN:
                 return this.settings.clients[0].password;
             case Protocols.SHADOWSOCKS:
@@ -818,10 +867,15 @@ class Inbound extends XrayCommonClass {
         return this.stream.grpc.serviceName;
     }
 
+    get hysteriaUdpIdleTimeout() {
+        return this.stream.hysteria.udpIdleTimeout;
+    }
+
     canEnableTls() {
         switch (this.protocol) {
             case Protocols.VMESS:
             case Protocols.VLESS:
+            case Protocols.HYSTERIA2:
             case Protocols.TROJAN:
             case Protocols.SHADOWSOCKS:
                 break;
@@ -835,6 +889,7 @@ class Inbound extends XrayCommonClass {
             case "http":
             case "quic":
             case "grpc":
+            case "hysteria":
                 return true;
             default:
                 return false;
@@ -842,6 +897,9 @@ class Inbound extends XrayCommonClass {
     }
 
     canSetTls() {
+        if (this.protocol === Protocols.HYSTERIA2) {
+            return false;
+        }
         return this.canEnableTls();
     }
 
@@ -860,6 +918,7 @@ class Inbound extends XrayCommonClass {
         switch (this.protocol) {
             case Protocols.VMESS:
             case Protocols.VLESS:
+            case Protocols.HYSTERIA2:
             case Protocols.SHADOWSOCKS:
                 return true;
             default:
@@ -1044,10 +1103,26 @@ class Inbound extends XrayCommonClass {
         return `trojan://${settings.clients[0].password}@${address}:${this.port}#${encodeURIComponent(remark)}`;
     }
 
+    genHysteria2Link(address='', remark='') {
+        let auth = this.settings.auth;
+        if (ObjectUtil.isEmpty(auth)) {
+            auth = this.stream.hysteria.auth;
+        }
+        const link = `hysteria2://${encodeURIComponent(auth)}@${address}:${this.port}`;
+        const url = new URL(link);
+        const serverName = this.stream.tls.server;
+        if (!ObjectUtil.isEmpty(serverName)) {
+            url.searchParams.set("sni", serverName);
+        }
+        url.hash = encodeURIComponent(remark);
+        return url.toString();
+    }
+
     genLink(address='', remark='') {
         switch (this.protocol) {
             case Protocols.VMESS: return this.genVmessLink(address, remark);
             case Protocols.VLESS: return this.genVLESSLink(address, remark);
+            case Protocols.HYSTERIA2: return this.genHysteria2Link(address, remark);
             case Protocols.SHADOWSOCKS: return this.genSSLink(address, remark);
             case Protocols.TROJAN: return this.genTrojanLink(address, remark);
             default: return '';
@@ -1058,8 +1133,8 @@ class Inbound extends XrayCommonClass {
         return new Inbound(
             json.port,
             json.listen,
-            json.protocol,
-            Inbound.Settings.fromJson(json.protocol, json.settings),
+            normalizeProtocol(json.protocol),
+            Inbound.Settings.fromJson(normalizeProtocol(json.protocol), json.settings),
             StreamSettings.fromJson(json.streamSettings),
             json.tag,
             Sniffing.fromJson(json.sniffing),
@@ -1068,6 +1143,10 @@ class Inbound extends XrayCommonClass {
 
     toJson() {
         let streamSettings;
+        if (this.protocol === Protocols.HYSTERIA2) {
+            this.stream.hysteria.version = this.settings.version;
+            this.stream.hysteria.auth = this.settings.auth;
+        }
         if (this.canEnableStream() || this.protocol === Protocols.TROJAN) {
             streamSettings = this.stream.toJson();
         }
@@ -1093,6 +1172,7 @@ Inbound.Settings = class extends XrayCommonClass {
         switch (protocol) {
             case Protocols.VMESS: return new Inbound.VmessSettings(protocol);
             case Protocols.VLESS: return new Inbound.VLESSSettings(protocol);
+            case Protocols.HYSTERIA2: return new Inbound.HysteriaSettings(protocol);
             case Protocols.TROJAN: return new Inbound.TrojanSettings(protocol);
             case Protocols.SHADOWSOCKS: return new Inbound.ShadowsocksSettings(protocol);
             case Protocols.DOKODEMO: return new Inbound.DokodemoSettings(protocol);
@@ -1107,6 +1187,7 @@ Inbound.Settings = class extends XrayCommonClass {
         switch (protocol) {
             case Protocols.VMESS: return Inbound.VmessSettings.fromJson(json);
             case Protocols.VLESS: return Inbound.VLESSSettings.fromJson(json);
+            case Protocols.HYSTERIA2: return Inbound.HysteriaSettings.fromJson(json);
             case Protocols.TROJAN: return Inbound.TrojanSettings.fromJson(json);
             case Protocols.SHADOWSOCKS: return Inbound.ShadowsocksSettings.fromJson(json);
             case Protocols.DOKODEMO: return Inbound.DokodemoSettings.fromJson(json);
@@ -1119,6 +1200,42 @@ Inbound.Settings = class extends XrayCommonClass {
 
     toJson() {
         return {};
+    }
+};
+
+Inbound.HysteriaSettings = class extends Inbound.Settings {
+    constructor(protocol,
+                version=2,
+                auth=RandomUtil.randomSeq(12),
+                level=0,
+                email='') {
+        super(protocol);
+        this.version = version;
+        this.auth = auth;
+        this.level = level;
+        this.email = email;
+    }
+
+    static fromJson(json={}) {
+        const client = ObjectUtil.isEmpty(json.clients) || ObjectUtil.isArrEmpty(json.clients) ? {} : json.clients[0];
+        return new Inbound.HysteriaSettings(
+            Protocols.HYSTERIA2,
+            ObjectUtil.isEmpty(json.version) ? 2 : json.version,
+            ObjectUtil.isEmpty(client.auth) ? json.auth : client.auth,
+            ObjectUtil.isEmpty(client.level) ? 0 : client.level,
+            client.email,
+        );
+    }
+
+    toJson() {
+        return {
+            version: this.version,
+            clients: [{
+                auth: this.auth,
+                level: this.level,
+                email: ObjectUtil.isEmpty(this.email) ? undefined : this.email,
+            }],
+        };
     }
 };
 

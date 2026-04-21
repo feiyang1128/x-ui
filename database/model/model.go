@@ -11,6 +11,7 @@ type Protocol string
 const (
 	VMess       Protocol = "vmess"
 	VLESS       Protocol = "vless"
+	Hysteria2   Protocol = "hysteria2"
 	Dokodemo    Protocol = "Dokodemo-door"
 	Http        Protocol = "http"
 	Trojan      Protocol = "trojan"
@@ -48,10 +49,14 @@ func (i *Inbound) GenXrayInboundConfig() *xray.InboundConfig {
 	if listen != "" {
 		listen = fmt.Sprintf("\"%v\"", listen)
 	}
+	protocol := string(i.Protocol)
+	if i.Protocol == Hysteria2 {
+		protocol = "hysteria"
+	}
 	return &xray.InboundConfig{
 		Listen:         json_util.RawMessage(listen),
 		Port:           i.Port,
-		Protocol:       string(i.Protocol),
+		Protocol:       protocol,
 		Settings:       json_util.RawMessage(i.Settings),
 		StreamSettings: json_util.RawMessage(i.StreamSettings),
 		Tag:            i.Tag,

@@ -24,6 +24,10 @@
     <p>grpc serviceName: <a-tag color="green">[[ inbound.serviceName ]]</a-tag></p>
 </template>
 
+<template v-if="inbound.isHysteria">
+    <p>udpIdleTimeout: <a-tag color="green">[[ inbound.hysteriaUdpIdleTimeout ]]</a-tag></p>
+</template>
+
 <template v-if="inbound.tls || inbound.xtls">
     <p v-if="inbound.tls">tls: <a-tag color="green">开启</a-tag></p>
     <p v-if="inbound.xtls">xtls: <a-tag color="green">开启</a-tag></p>
@@ -56,6 +60,10 @@
         <p v-if="inbound.isXTls">flow: <a-tag color="green">[[ inbound.flow ]]</a-tag></p>
     </template>
 
+    <template v-if="dbInbound.isHy2">
+        <p>auth: <a-tag color="green">[[ inbound.password ]]</a-tag></p>
+    </template>
+
     <template v-if="dbInbound.isTrojan">
         <p>密码: <a-tag color="green">[[ inbound.password ]]</a-tag></p>
     </template>
@@ -75,7 +83,7 @@
         <p>密码: <a-tag color="green">[[ inbound.password ]]</a-tag></p>
     </template>
 
-    <template v-if="dbInbound.isVMess || dbInbound.isVLess || dbInbound.isTrojan || dbInbound.isSS">
+    <template v-if="dbInbound.isVMess || dbInbound.isVLess || dbInbound.isHy2 || dbInbound.isTrojan || dbInbound.isSS">
         {{template "inboundInfoStream"}}
     </template>
 </div>

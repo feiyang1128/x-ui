@@ -49,6 +49,9 @@ class DBInbound {
             return;
         }
         ObjectUtil.cloneProps(this, data);
+        if (this.protocol === "hysteria") {
+            this.protocol = Protocols.HYSTERIA2;
+        }
     }
 
     get totalGB() {
@@ -65,6 +68,10 @@ class DBInbound {
 
     get isVLess() {
         return this.protocol === Protocols.VLESS;
+    }
+
+    get isHy2() {
+        return this.protocol === Protocols.HYSTERIA2 || this.protocol === 'hysteria';
     }
 
     get isTrojan() {
@@ -141,6 +148,8 @@ class DBInbound {
         switch (this.protocol) {
             case Protocols.VMESS:
             case Protocols.VLESS:
+            case Protocols.HYSTERIA2:
+            case 'hysteria':
             case Protocols.TROJAN:
             case Protocols.SHADOWSOCKS:
                 return true;

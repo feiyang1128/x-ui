@@ -64,6 +64,11 @@
     {{template "form/vless"}}
 </template>
 
+<!-- hysteria2 settings -->
+<template v-if="inbound.protocol === Protocols.HYSTERIA2">
+    {{template "form/hysteria"}}
+</template>
+
 <!-- trojan settings -->
 <template v-if="inbound.protocol === Protocols.TROJAN">
     {{template "form/trojan"}}

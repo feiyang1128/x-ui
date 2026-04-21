@@ -1,0 +1,7 @@
+{{define "form/streamHysteria"}}
+<a-form layout="inline">
+    <a-form-item label="udpIdleTimeout">
+        <a-input-number v-model="inbound.stream.hysteria.udpIdleTimeout" :min="1"></a-input-number>
+    </a-form-item>
+</a-form>
+{{end}}
