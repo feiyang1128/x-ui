@@ -43,6 +43,26 @@ var defaultValueMap = map[string]string{
 type SettingService struct {
 }
 
+func getDefaultSettingValue(key string) (string, bool) {
+	value, ok := defaultValueMap[key]
+	if !ok {
+		return "", false
+	}
+	return value, true
+}
+
+func normalizeTemplateSettingValue(key string, value string) string {
+	switch key {
+	case "xrayTemplateConfig", "singboxTemplateConfig":
+		if strings.TrimSpace(value) == "" {
+			if defaultValue, ok := getDefaultSettingValue(key); ok {
+				return defaultValue
+			}
+		}
+	}
+	return value
+}
+
 func (s *SettingService) GetAllSetting() (*entity.AllSetting, error) {
 	db := database.GetDB()
 	settings := make([]*model.Setting, 0)
@@ -152,15 +172,15 @@ func (s *SettingService) saveSetting(key string, value string) error {
 func (s *SettingService) getString(key string) (string, error) {
 	setting, err := s.getSetting(key)
 	if database.IsNotFound(err) {
-		value, ok := defaultValueMap[key]
+		value, ok := getDefaultSettingValue(key)
 		if !ok {
 			return "", common.NewErrorf("key <%v> not in defaultValueMap", key)
 		}
-		return value, nil
+		return normalizeTemplateSettingValue(key, value), nil
 	} else if err != nil {
 		return "", err
 	}
-	return setting.Value, nil
+	return normalizeTemplateSettingValue(key, setting.Value), nil
 }
 
 func (s *SettingService) setString(key string, value string) error {
@@ -295,6 +315,9 @@ func (s *SettingService) GetTimeLocation() (*time.Location, error) {
 }
 
 func (s *SettingService) UpdateAllSetting(allSetting *entity.AllSetting) error {
+	allSetting.XrayTemplateConfig = normalizeTemplateSettingValue("xrayTemplateConfig", allSetting.XrayTemplateConfig)
+	allSetting.SingboxTemplateConfig = normalizeTemplateSettingValue("singboxTemplateConfig", allSetting.SingboxTemplateConfig)
+
 	if err := allSetting.CheckValid(); err != nil {
 		return err
 	}
