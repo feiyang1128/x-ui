@@ -652,6 +652,14 @@ class Inbound extends XrayCommonClass {
             this.stream.security = 'xtls';
         } else {
             this.stream.security = 'none';
+            switch (this.protocol) {
+                case Protocols.VLESS:
+                    this.settings.vlesses[0].flow = '';
+                    break;
+                case Protocols.TROJAN:
+                    this.settings.clients[0].flow = '';
+                    break;
+            }
         }
     }
 
@@ -1209,10 +1217,17 @@ Inbound.VLESSSettings = class extends Inbound.Settings {
 };
 Inbound.VLESSSettings.VLESS = class extends XrayCommonClass {
 
-    constructor(id=RandomUtil.randomUUID(), flow=FLOW_CONTROL.DIRECT) {
+    constructor(id=RandomUtil.randomUUID(), flow='') {
         super();
         this.id = id;
         this.flow = flow;
+    }
+
+    toJson() {
+        return {
+            id: this.id,
+            flow: ObjectUtil.isEmpty(this.flow) ? undefined : this.flow,
+        };
     }
 
     static fromJson(json={}) {
@@ -1297,7 +1312,7 @@ Inbound.TrojanSettings = class extends Inbound.Settings {
     }
 };
 Inbound.TrojanSettings.Client = class extends XrayCommonClass {
-    constructor(password=RandomUtil.randomSeq(10), flow=FLOW_CONTROL.DIRECT) {
+    constructor(password=RandomUtil.randomSeq(10), flow='') {
         super();
         this.password = password;
         this.flow = flow;
@@ -1306,7 +1321,7 @@ Inbound.TrojanSettings.Client = class extends XrayCommonClass {
     toJson() {
         return {
             password: this.password,
-            flow: this.flow,
+            flow: ObjectUtil.isEmpty(this.flow) ? undefined : this.flow,
         };
     }
 
