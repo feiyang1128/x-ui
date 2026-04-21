@@ -6,6 +6,7 @@ import (
 	"net"
 	"strings"
 	"time"
+	"x-ui/core"
 	"x-ui/util/common"
 	"x-ui/xray"
 )
@@ -32,11 +33,13 @@ type AllSetting struct {
 	WebCertFile        string `json:"webCertFile" form:"webCertFile"`
 	WebKeyFile         string `json:"webKeyFile" form:"webKeyFile"`
 	WebBasePath        string `json:"webBasePath" form:"webBasePath"`
-	TgBotEnable        bool   `json:"tgBotEnable" form:"tgBotEnable"`
-	TgBotToken         string `json:"tgBotToken" form:"tgBotToken"`
-	TgBotChatId        int    `json:"tgBotChatId" form:"tgBotChatId"`
-	TgRunTime          string `json:"tgRunTime" form:"tgRunTime"`
-	XrayTemplateConfig string `json:"xrayTemplateConfig" form:"xrayTemplateConfig"`
+	CoreType              string `json:"coreType" form:"coreType"`
+	TgBotEnable           bool   `json:"tgBotEnable" form:"tgBotEnable"`
+	TgBotToken            string `json:"tgBotToken" form:"tgBotToken"`
+	TgBotChatId           int    `json:"tgBotChatId" form:"tgBotChatId"`
+	TgRunTime             string `json:"tgRunTime" form:"tgRunTime"`
+	XrayTemplateConfig    string `json:"xrayTemplateConfig" form:"xrayTemplateConfig"`
+	SingboxTemplateConfig string `json:"singboxTemplateConfig" form:"singboxTemplateConfig"`
 
 	TimeLocation string `json:"timeLocation" form:"timeLocation"`
 }
@@ -71,6 +74,20 @@ func (s *AllSetting) CheckValid() error {
 	err := json.Unmarshal([]byte(s.XrayTemplateConfig), xrayConfig)
 	if err != nil {
 		return common.NewError("xray template config invalid:", err)
+	}
+
+	singboxConfig := map[string]interface{}{}
+	err = json.Unmarshal([]byte(s.SingboxTemplateConfig), &singboxConfig)
+	if err != nil {
+		return common.NewError("sing-box template config invalid:", err)
+	}
+
+	switch s.CoreType {
+	case "", string(core.Xray):
+		s.CoreType = string(core.Xray)
+	case string(core.SingBox):
+	default:
+		return common.NewError("core type invalid:", s.CoreType)
 	}
 
 	_, err = time.LoadLocation(s.TimeLocation)

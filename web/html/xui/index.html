@@ -68,7 +68,7 @@
                 <a-row>
                     <a-col :sm="24" :md="12">
                         <a-card hoverable>
-                            xray 状态:
+                            [[ status.xray.name ]] 状态:
                             <a-tag :color="status.xray.color">[[ status.xray.state ]]</a-tag>
                             <a-tooltip v-if="status.xray.state === State.Error">
                                 <template slot="title">
@@ -76,8 +76,22 @@
                                 </template>
                                 <a-icon type="question-circle" theme="filled"></a-icon>
                             </a-tooltip>
-                            <a-tag color="green" @click="openSelectV2rayVersion">[[ status.xray.version ]]</a-tag>
-                            <a-tag color="blue" @click="openSelectV2rayVersion">切换版本</a-tag>
+                            <a-tag color="green">[[ status.xray.version ]]</a-tag>
+                            <a-tag color="blue" @click="openSelectCoreVersion(status.xray.type)">切换版本</a-tag>
+                        </a-card>
+                    </a-col>
+                    <a-col :sm="24" :md="12">
+                        <a-card hoverable>
+                            sing-box 状态:
+                            <a-tag :color="status.singbox.color">[[ status.singbox.state ]]</a-tag>
+                            <a-tooltip v-if="status.singbox.state === State.Error">
+                                <template slot="title">
+                                    <p v-for="line in status.singbox.errorMsg.split('\n')">[[ line ]]</p>
+                                </template>
+                                <a-icon type="question-circle" theme="filled"></a-icon>
+                            </a-tooltip>
+                            <a-tag color="green">[[ status.singbox.version ]]</a-tag>
+                            <a-tag color="blue" @click="openSelectCoreVersion(status.singbox.type)">切换版本</a-tag>
                         </a-card>
                     </a-col>
                     <a-col :sm="24" :md="12">
@@ -171,7 +185,7 @@
         <h2>请谨慎选择，旧版本可能配置不兼容</h2>
         <template v-for="version, index in versionModal.versions">
             <a-tag :color="index % 2 == 0 ? 'blue' : 'green'"
-                   style="margin: 10px" @click="switchV2rayVersion(version)">
+                   style="margin: 10px" @click="switchCoreVersion(version)">
                 [[ version ]]
             </a-tag>
         </template>
@@ -225,7 +239,8 @@
             this.tcpCount = 0;
             this.udpCount = 0;
             this.uptime = 0;
-            this.xray = {state: State.Stop, errorMsg: "", version: "", color: ""};
+            this.xray = {name: "xray", type: "xray", state: State.Stop, errorMsg: "", version: "", color: ""};
+            this.singbox = {name: "sing-box", type: "sing-box", state: State.Stop, errorMsg: "", version: "", color: ""};
 
             if (data == null) {
                 return;
@@ -241,6 +256,7 @@
             this.udpCount = data.udpCount;
             this.uptime = data.uptime;
             this.xray = data.xray;
+            this.singbox = data.singbox || this.singbox;
             switch (this.xray.state) {
                 case State.Running:
                     this.xray.color = "green";
@@ -254,14 +270,29 @@
                 default:
                     this.xray.color = "gray";
             }
+            switch (this.singbox.state) {
+                case State.Running:
+                    this.singbox.color = "green";
+                    break;
+                case State.Stop:
+                    this.singbox.color = "orange";
+                    break;
+                case State.Error:
+                    this.singbox.color = "red";
+                    break;
+                default:
+                    this.singbox.color = "gray";
+            }
         }
     }
 
     const versionModal = {
         visible: false,
+        coreType: 'xray',
         versions: [],
-        show(versions) {
+        show(coreType, versions) {
             this.visible = true;
+            this.coreType = coreType;
             this.versions = versions;
         },
         hide() {
@@ -293,25 +324,26 @@
             setStatus(data) {
                 this.status = new Status(data);
             },
-            async openSelectV2rayVersion() {
+            async openSelectCoreVersion(coreType) {
                 this.loading(true);
-                const msg = await HttpUtil.post('server/getXrayVersion');
+                const msg = await HttpUtil.post(`server/getCoreVersion/${coreType}`);
                 this.loading(false);
                 if (!msg.success) {
                     return;
                 }
-                versionModal.show(msg.obj);
+                versionModal.show(coreType, msg.obj);
             },
-            switchV2rayVersion(version) {
+            switchCoreVersion(version) {
+                const coreName = versionModal.coreType === 'sing-box' ? 'sing-box' : 'xray';
                 this.$confirm({
-                    title: '切换 xray 版本',
-                    content: '是否切换 xray 版本至' + ` ${version}?`,
+                    title: `切换 ${coreName} 版本`,
+                    content: `是否切换 ${coreName} 版本至 ${version}?`,
                     okText: '确定',
                     cancelText: '取消',
                     onOk: async () => {
                         versionModal.hide();
                         this.loading(true, '安装中，请不要刷新此页面');
-                        await HttpUtil.post(`/server/installXray/${version}`);
+                        await HttpUtil.post(`/server/installCore/${versionModal.coreType}/${version}`);
                         this.loading(false);
                     },
                 });

@@ -66,9 +66,11 @@
                                 </a-form-item>
                             </a-form>
                         </a-tab-pane>
-                        <a-tab-pane key="3" tab="xray 相关设置">
+                        <a-tab-pane key="3" tab="内核相关设置">
                             <a-list item-layout="horizontal" style="background: white">
+                                <setting-list-item type="select" title="默认内核类型" desc="新建节点时默认使用的内核类型" :select-options="[{value:'xray', label:'xray'}, {value:'sing-box', label:'sing-box'}]" v-model="allSetting.coreType"></setting-list-item>
                                 <setting-list-item type="textarea" title="xray 配置模版" desc="以该模版为基础生成最终的 xray 配置文件，重启面板生效" v-model="allSetting.xrayTemplateConfig"></setting-list-item>
+                                <setting-list-item type="textarea" title="sing-box 配置模版" desc="以该模版为基础生成最终的 sing-box 配置文件，重启面板生效" v-model="allSetting.singboxTemplateConfig"></setting-list-item>
                             </a-list>
                         </a-tab-pane>
                         <a-tab-pane key="4" tab="TG提醒相关设置">

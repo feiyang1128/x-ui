@@ -39,6 +39,7 @@ class DBInbound {
 
         this.listen = "";
         this.port = 0;
+        this.coreType = "xray";
         this.protocol = "";
         this.settings = "";
         this.streamSettings = "";
@@ -135,6 +136,7 @@ class DBInbound {
         const config = {
             port: this.port,
             listen: this.listen,
+            coreType: this.coreType,
             protocol: this.protocol,
             settings: settings,
             streamSettings: streamSettings,
@@ -172,11 +174,13 @@ class AllSetting {
         this.webCertFile = "";
         this.webKeyFile = "";
         this.webBasePath = "/";
+        this.coreType = "xray";
         this.tgBotEnable = false;
         this.tgBotToken = "";
         this.tgBotChatId = 0;
         this.tgRunTime = "";
         this.xrayTemplateConfig = "";
+        this.singboxTemplateConfig = "";
 
         this.timeLocation = "Asia/Shanghai";
 

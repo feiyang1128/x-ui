@@ -20,8 +20,13 @@ import (
 //go:embed config.json
 var xrayTemplateConfig string
 
+//go:embed singbox_config.json
+var singboxTemplateConfig string
+
 var defaultValueMap = map[string]string{
 	"xrayTemplateConfig": xrayTemplateConfig,
+	"singboxTemplateConfig": singboxTemplateConfig,
+	"coreType":             "xray",
 	"webListen":          "",
 	"webPort":            "54321",
 	"webCertFile":        "",
@@ -188,6 +193,14 @@ func (s *SettingService) setInt(key string, value int) error {
 
 func (s *SettingService) GetXrayConfigTemplate() (string, error) {
 	return s.getString("xrayTemplateConfig")
+}
+
+func (s *SettingService) GetSingboxConfigTemplate() (string, error) {
+	return s.getString("singboxTemplateConfig")
+}
+
+func (s *SettingService) GetCoreType() (string, error) {
+	return s.getString("coreType")
 }
 
 func (s *SettingService) GetListen() (string, error) {

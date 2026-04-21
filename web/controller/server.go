@@ -1,10 +1,12 @@
 package controller
 
 import (
-	"github.com/gin-gonic/gin"
 	"time"
+	"x-ui/core"
 	"x-ui/web/global"
 	"x-ui/web/service"
+
+	"github.com/gin-gonic/gin"
 )
 
 type ServerController struct {
@@ -15,13 +17,15 @@ type ServerController struct {
 	lastStatus        *service.Status
 	lastGetStatusTime time.Time
 
-	lastVersions        []string
-	lastGetVersionsTime time.Time
+	lastVersionsByCore  map[string][]string
+	lastGetVersionsTime map[string]time.Time
 }
 
 func NewServerController(g *gin.RouterGroup) *ServerController {
 	a := &ServerController{
-		lastGetStatusTime: time.Now(),
+		lastGetStatusTime:  time.Now(),
+		lastVersionsByCore: map[string][]string{},
+		lastGetVersionsTime: map[string]time.Time{},
 	}
 	a.initRouter(g)
 	a.startTask()
@@ -33,8 +37,8 @@ func (a *ServerController) initRouter(g *gin.RouterGroup) {
 
 	g.Use(a.checkLogin)
 	g.POST("/status", a.status)
-	g.POST("/getXrayVersion", a.getXrayVersion)
-	g.POST("/installXray/:version", a.installXray)
+	g.POST("/getCoreVersion/:core", a.getCoreVersion)
+	g.POST("/installCore/:core/:version", a.installCore)
 }
 
 func (a *ServerController) refreshStatus() {
@@ -59,27 +63,30 @@ func (a *ServerController) status(c *gin.Context) {
 	jsonObj(c, a.lastStatus, nil)
 }
 
-func (a *ServerController) getXrayVersion(c *gin.Context) {
+func (a *ServerController) getCoreVersion(c *gin.Context) {
+	coreType := core.Type(c.Param("core"))
+	coreKey := string(coreType)
 	now := time.Now()
-	if now.Sub(a.lastGetVersionsTime) <= time.Minute {
-		jsonObj(c, a.lastVersions, nil)
+	if lastTime, ok := a.lastGetVersionsTime[coreKey]; ok && now.Sub(lastTime) <= time.Minute {
+		jsonObj(c, a.lastVersionsByCore[coreKey], nil)
 		return
 	}
 
-	versions, err := a.serverService.GetXrayVersions()
+	versions, err := a.serverService.GetCoreVersions(coreType)
 	if err != nil {
 		jsonMsg(c, "获取版本", err)
 		return
 	}
 
-	a.lastVersions = versions
-	a.lastGetVersionsTime = time.Now()
+	a.lastVersionsByCore[coreKey] = versions
+	a.lastGetVersionsTime[coreKey] = time.Now()
 
 	jsonObj(c, versions, nil)
 }
 
-func (a *ServerController) installXray(c *gin.Context) {
+func (a *ServerController) installCore(c *gin.Context) {
+	coreType := core.Type(c.Param("core"))
 	version := c.Param("version")
-	err := a.serverService.UpdateXray(version)
-	jsonMsg(c, "安装 xray", err)
+	err := a.serverService.UpdateCore(coreType, version)
+	jsonMsg(c, "安装内核", err)
 }

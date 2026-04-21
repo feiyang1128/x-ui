@@ -280,9 +280,9 @@ func (s *Server) initI18n(engine *gin.Engine) error {
 }
 
 func (s *Server) startTask() {
-	err := s.xrayService.RestartXray(true)
+	err := s.xrayService.RestartAll(true)
 	if err != nil {
-		logger.Warning("start xray failed:", err)
+		logger.Warning("start cores failed:", err)
 	}
 	// 每 30 秒检查一次 xray 是否在运行
 	s.cron.AddJob("@every 30s", job.NewCheckXrayRunningJob())
@@ -391,7 +391,7 @@ func (s *Server) Start() (err error) {
 
 func (s *Server) Stop() error {
 	s.cancel()
-	s.xrayService.StopXray()
+	s.xrayService.StopAll()
 	if s.cron != nil {
 		s.cron.Stop()
 	}

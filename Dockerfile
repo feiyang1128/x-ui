@@ -10,5 +10,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends -y ca-certifica
 WORKDIR /root
 COPY --from=builder  /root/main /root/x-ui
 COPY bin/. /root/bin/.
+RUN chmod +x /root/x-ui /root/bin/*
 VOLUME [ "/etc/x-ui" ]
 CMD [ "./x-ui" ]

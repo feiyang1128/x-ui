@@ -77,6 +77,9 @@
                             <template slot="protocol" slot-scope="text, dbInbound">
                                 <a-tag color="blue">[[ dbInbound.protocol ]]</a-tag>
                             </template>
+                            <template slot="core" slot-scope="text, dbInbound">
+                                <a-tag :color="dbInbound.coreType === 'sing-box' ? 'purple' : 'cyan'">[[ dbInbound.coreType ]]</a-tag>
+                            </template>
                             <template slot="traffic" slot-scope="text, dbInbound">
                                 <a-tag color="blue">[[ sizeFormat(dbInbound.up) ]] / [[ sizeFormat(dbInbound.down) ]]</a-tag>
                                 <template v-if="dbInbound.total > 0">
@@ -268,6 +271,7 @@
 
                     listen: inbound.listen,
                     port: inbound.port,
+                    coreType: inbound.coreType,
                     protocol: inbound.protocol,
                     settings: inbound.settings.toString(),
                     streamSettings: inbound.stream.toString(),
@@ -286,6 +290,7 @@
 
                     listen: inbound.listen,
                     port: inbound.port,
+                    coreType: inbound.coreType,
                     protocol: inbound.protocol,
                     settings: inbound.settings.toString(),
                     streamSettings: inbound.stream.toString(),

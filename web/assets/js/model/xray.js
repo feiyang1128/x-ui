@@ -637,6 +637,7 @@ class Sniffing extends XrayCommonClass {
 class Inbound extends XrayCommonClass {
     constructor(port=RandomUtil.randomIntRange(10000, 60000),
                 listen='',
+                coreType='xray',
                 protocol=Protocols.VMESS,
                 settings=null,
                 streamSettings=new StreamSettings(),
@@ -646,6 +647,7 @@ class Inbound extends XrayCommonClass {
         super();
         this.port = port;
         this.listen = listen;
+        this.coreType = coreType || 'xray';
         protocol = normalizeProtocol(protocol);
         this._protocol = protocol;
         this.settings = ObjectUtil.isEmpty(settings) ? Inbound.Settings.getSettings(protocol) : settings;
@@ -1133,6 +1135,7 @@ class Inbound extends XrayCommonClass {
         return new Inbound(
             json.port,
             json.listen,
+            json.coreType,
             normalizeProtocol(json.protocol),
             Inbound.Settings.fromJson(normalizeProtocol(json.protocol), json.settings),
             StreamSettings.fromJson(json.streamSettings),
@@ -1153,6 +1156,7 @@ class Inbound extends XrayCommonClass {
         return {
             port: this.port,
             listen: this.listen,
+            coreType: this.coreType,
             protocol: this.protocol,
             settings: this.settings instanceof XrayCommonClass ? this.settings.toJson() : this.settings,
             streamSettings: streamSettings,

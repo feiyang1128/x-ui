@@ -1,25 +1,31 @@
 package job
 
-import "x-ui/web/service"
+import (
+	"x-ui/core"
+	"x-ui/web/service"
+)
 
 type CheckXrayRunningJob struct {
 	xrayService service.XrayService
-
-	checkTime int
+	checkTime   map[core.Type]int
 }
 
 func NewCheckXrayRunningJob() *CheckXrayRunningJob {
-	return new(CheckXrayRunningJob)
+	return &CheckXrayRunningJob{
+		checkTime: map[core.Type]int{},
+	}
 }
 
 func (j *CheckXrayRunningJob) Run() {
-	if j.xrayService.IsXrayRunning() {
-		j.checkTime = 0
-		return
+	for _, coreType := range j.xrayService.GetManagedCoreTypes() {
+		if j.xrayService.IsCoreRunning(coreType) {
+			j.checkTime[coreType] = 0
+			continue
+		}
+		j.checkTime[coreType]++
+		if j.checkTime[coreType] < 2 {
+			continue
+		}
+		j.xrayService.SetCoreToNeedRestart(coreType)
 	}
-	j.checkTime++
-	if j.checkTime < 2 {
-		return
-	}
-	j.xrayService.SetToNeedRestart()
 }

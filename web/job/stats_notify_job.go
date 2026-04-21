@@ -59,7 +59,7 @@ func (j *StatsNotifyJob) SendMsgToTgbot(msg string) {
 
 //Here run is a interface method of Job interface
 func (j *StatsNotifyJob) Run() {
-	if !j.xrayService.IsXrayRunning() {
+	if !j.xrayService.IsAnyCoreRunning() {
 		return
 	}
 	var info string

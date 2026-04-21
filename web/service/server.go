@@ -1,25 +1,32 @@
 package service
 
 import (
+	"archive/tar"
 	"archive/zip"
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"io/fs"
+	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"time"
+	"x-ui/core"
+	"x-ui/logger"
+	"x-ui/util/sys"
+	"x-ui/xray"
+
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/host"
 	"github.com/shirou/gopsutil/load"
 	"github.com/shirou/gopsutil/mem"
 	"github.com/shirou/gopsutil/net"
-	"io"
-	"io/fs"
-	"net/http"
-	"os"
-	"runtime"
-	"time"
-	"x-ui/logger"
-	"x-ui/util/sys"
-	"x-ui/xray"
 )
 
 type ProcessState string
@@ -45,11 +52,8 @@ type Status struct {
 		Current uint64 `json:"current"`
 		Total   uint64 `json:"total"`
 	} `json:"disk"`
-	Xray struct {
-		State    ProcessState `json:"state"`
-		ErrorMsg string       `json:"errorMsg"`
-		Version  string       `json:"version"`
-	} `json:"xray"`
+	Xray    CoreStatus `json:"xray"`
+	Singbox CoreStatus `json:"singbox"`
 	Uptime   uint64    `json:"uptime"`
 	Loads    []float64 `json:"loads"`
 	TcpCount int       `json:"tcpCount"`
@@ -66,6 +70,14 @@ type Status struct {
 
 type Release struct {
 	TagName string `json:"tag_name"`
+}
+
+type coreReleaseSpec struct {
+	apiURL        string
+	downloadURL   string
+	archiveName   string
+	archiveFormat string
+	binaryName    string
 }
 
 type ServerService struct {
@@ -153,31 +165,26 @@ func (s *ServerService) GetStatus(lastStatus *Status) *Status {
 		logger.Warning("get udp connections failed:", err)
 	}
 
-	if s.xrayService.IsXrayRunning() {
-		status.Xray.State = Running
-		status.Xray.ErrorMsg = ""
-	} else {
-		err := s.xrayService.GetXrayErr()
-		if err != nil {
-			status.Xray.State = Error
-		} else {
-			status.Xray.State = Stop
-		}
-		status.Xray.ErrorMsg = s.xrayService.GetXrayResult()
-	}
-	status.Xray.Version = s.xrayService.GetXrayVersion()
+	status.Xray = s.xrayService.GetCoreStatus(core.Xray)
+	status.Singbox = s.xrayService.GetCoreStatus(core.SingBox)
 
 	return status
 }
 
-func (s *ServerService) GetXrayVersions() ([]string, error) {
+func (s *ServerService) GetCoreVersions(coreType core.Type) ([]string, error) {
 	url := "https://gh-proxy.org/https://api.github.com/repos/XTLS/Xray-core/releases"
+	if coreType == core.SingBox {
+		url = "https://gh-proxy.org/https://api.github.com/repos/SagerNet/sing-box/releases"
+	}
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
 	}
 
 	defer resp.Body.Close()
+	if err = ensureSuccessfulResponse(resp); err != nil {
+		return nil, err
+	}
 	buffer := bytes.NewBuffer(make([]byte, 8192))
 	buffer.Reset()
 	_, err = buffer.ReadFrom(resp.Body)
@@ -195,6 +202,36 @@ func (s *ServerService) GetXrayVersions() ([]string, error) {
 		versions = append(versions, release.TagName)
 	}
 	return versions, nil
+}
+
+func (s *ServerService) downloadCore(coreType core.Type, version string) (string, *coreReleaseSpec, error) {
+	spec, err := s.getCoreReleaseSpec(coreType, version)
+	if err != nil {
+		return "", nil, err
+	}
+	resp, err := http.Get(spec.downloadURL)
+	if err != nil {
+		return "", nil, err
+	}
+	defer resp.Body.Close()
+	if err = ensureSuccessfulResponse(resp); err != nil {
+		return "", nil, err
+	}
+
+	fileName := spec.archiveName
+	_ = os.Remove(fileName)
+	file, err := os.Create(fileName)
+	if err != nil {
+		return "", nil, err
+	}
+	defer file.Close()
+
+	_, err = io.Copy(file, resp.Body)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return fileName, spec, nil
 }
 
 func (s *ServerService) downloadXRay(version string) (string, error) {
@@ -220,6 +257,9 @@ func (s *ServerService) downloadXRay(version string) (string, error) {
 		return "", err
 	}
 	defer resp.Body.Close()
+	if err = ensureSuccessfulResponse(resp); err != nil {
+		return "", err
+	}
 
 	os.Remove(fileName)
 	file, err := os.Create(fileName)
@@ -234,6 +274,17 @@ func (s *ServerService) downloadXRay(version string) (string, error) {
 	}
 
 	return fileName, nil
+}
+
+func (s *ServerService) UpdateCore(coreType core.Type, version string) error {
+	switch coreType {
+	case core.Xray:
+		return s.UpdateXray(version)
+	case core.SingBox:
+		return s.UpdateSingbox(version)
+	default:
+		return errors.New("unknown core type")
+	}
 }
 
 func (s *ServerService) UpdateXray(version string) error {
@@ -260,9 +311,9 @@ func (s *ServerService) UpdateXray(version string) error {
 		return err
 	}
 
-	s.xrayService.StopXray()
+	_ = s.xrayService.StopCore(core.Xray)
 	defer func() {
-		err := s.xrayService.RestartXray(true)
+		err := s.xrayService.RestartCore(core.Xray, true)
 		if err != nil {
 			logger.Error("start xray failed:", err)
 		}
@@ -298,4 +349,169 @@ func (s *ServerService) UpdateXray(version string) error {
 
 	return nil
 
+}
+
+func (s *ServerService) UpdateSingbox(version string) error {
+	archiveName, spec, err := s.downloadCore(core.SingBox, version)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		_ = os.Remove(archiveName)
+	}()
+
+	_ = s.xrayService.StopCore(core.SingBox)
+	defer func() {
+		err := s.xrayService.RestartCore(core.SingBox, true)
+		if err != nil {
+			logger.Error("start sing-box failed:", err)
+		}
+	}()
+
+	switch spec.archiveFormat {
+	case "tar.gz":
+		return s.extractTarGzBinary(archiveName, spec.binaryName, core.GetBinaryPath(core.SingBox))
+	case "zip":
+		return s.extractZipBinary(archiveName, spec.binaryName, core.GetBinaryPath(core.SingBox))
+	default:
+		return fmt.Errorf("unsupported archive format: %s", spec.archiveFormat)
+	}
+}
+
+func (s *ServerService) getCoreReleaseSpec(coreType core.Type, version string) (*coreReleaseSpec, error) {
+	switch coreType {
+	case core.Xray:
+		return nil, errors.New("xray uses legacy updater path")
+	case core.SingBox:
+		return getSingboxReleaseSpec(version)
+	default:
+		return nil, errors.New("unknown core type")
+	}
+}
+
+func getSingboxReleaseSpec(version string) (*coreReleaseSpec, error) {
+	osName := runtime.GOOS
+	arch := runtime.GOARCH
+
+	switch arch {
+	case "amd64", "arm64":
+	default:
+		return nil, fmt.Errorf("sing-box online install does not support arch %s", arch)
+	}
+
+	format := "tar.gz"
+	if osName == "windows" {
+		format = "zip"
+	}
+	if osName != "linux" && osName != "darwin" && osName != "windows" {
+		return nil, fmt.Errorf("sing-box online install does not support os %s", osName)
+	}
+
+	if strings.HasPrefix(version, "v") {
+		version = strings.TrimPrefix(version, "v")
+	}
+
+	archiveName := fmt.Sprintf("sing-box-%s-%s-%s.%s", version, osName, arch, format)
+	if format == "zip" {
+		archiveName = fmt.Sprintf("sing-box-%s-%s-%s.zip", version, osName, arch)
+	}
+
+	return &coreReleaseSpec{
+		apiURL:        "https://gh-proxy.org/https://api.github.com/repos/SagerNet/sing-box/releases",
+		downloadURL:   fmt.Sprintf("https://gh-proxy.org/https://github.com/SagerNet/sing-box/releases/download/v%s/%s", version, archiveName),
+		archiveName:   archiveName,
+		archiveFormat: format,
+		binaryName:    binaryNameForOS("sing-box", osName),
+	}, nil
+}
+
+func binaryNameForOS(name string, osName string) string {
+	if osName == "windows" {
+		return name + ".exe"
+	}
+	return name
+}
+
+func (s *ServerService) extractZipBinary(archivePath string, zipName string, fileName string) error {
+	zipFile, err := os.Open(archivePath)
+	if err != nil {
+		return err
+	}
+	defer zipFile.Close()
+
+	stat, err := zipFile.Stat()
+	if err != nil {
+		return err
+	}
+	reader, err := zip.NewReader(zipFile, stat.Size())
+	if err != nil {
+		return err
+	}
+
+	for _, file := range reader.File {
+		if filepath.Base(file.Name) != zipName {
+			continue
+		}
+		rc, err := file.Open()
+		if err != nil {
+			return err
+		}
+		defer rc.Close()
+		return writeExecutable(fileName, rc)
+	}
+
+	return fmt.Errorf("binary %s not found in archive", zipName)
+}
+
+func (s *ServerService) extractTarGzBinary(archivePath string, binaryName string, fileName string) error {
+	file, err := os.Open(archivePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	gzipReader, err := gzip.NewReader(file)
+	if err != nil {
+		return err
+	}
+	defer gzipReader.Close()
+
+	tarReader := tar.NewReader(gzipReader)
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		if filepath.Base(header.Name) != binaryName {
+			continue
+		}
+		return writeExecutable(fileName, tarReader)
+	}
+
+	return fmt.Errorf("binary %s not found in archive", binaryName)
+}
+
+func writeExecutable(fileName string, reader io.Reader) error {
+	_ = os.Remove(fileName)
+	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_RDWR|os.O_TRUNC, fs.ModePerm)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	if _, err = io.Copy(file, reader); err != nil {
+		return err
+	}
+	return os.Chmod(fileName, 0755)
+}
+
+func ensureSuccessfulResponse(resp *http.Response) error {
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return nil
+	}
+	return fmt.Errorf("download failed: %s", resp.Status)
 }
