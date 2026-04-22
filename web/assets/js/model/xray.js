@@ -1170,7 +1170,11 @@ class Inbound extends XrayCommonClass {
             url.searchParams.set("sni", serverName);
         }
         const cert = this.stream.tls.certs && this.stream.tls.certs.length > 0 ? this.stream.tls.certs[0] : null;
-        if (serverName === HY2_SELF_SIGNED_SNI && (ObjectUtil.isEmpty(cert) || (ObjectUtil.isEmpty(cert.certFile) && ObjectUtil.isEmpty(cert.cert) && ObjectUtil.isEmpty(cert.keyFile) && ObjectUtil.isEmpty(cert.key)))) {
+        const hasCustomCert = cert && (
+            (!ObjectUtil.isEmpty(cert.certFile) && !ObjectUtil.isEmpty(cert.keyFile)) ||
+            (!ObjectUtil.isEmpty(cert.cert) && !ObjectUtil.isEmpty(cert.key))
+        );
+        if (serverName === HY2_SELF_SIGNED_SNI && !hasCustomCert) {
             url.searchParams.set("insecure", 1);
         }
         if (!ObjectUtil.isEmpty(this.stream.hysteria.obfsType) && !ObjectUtil.isEmpty(this.stream.hysteria.obfsPassword)) {
