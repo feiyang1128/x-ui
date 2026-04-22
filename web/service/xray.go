@@ -257,11 +257,19 @@ func hasSingboxCertificate(tlsObj map[string]interface{}) bool {
 				return true
 			}
 		case []string:
-			if len(value) > 0 {
-				return true
+			for _, item := range value {
+				if item != "" {
+					return true
+				}
 			}
 		case []interface{}:
-			if len(value) > 0 {
+			for _, item := range value {
+				if str, ok := item.(string); ok && str != "" {
+					return true
+				}
+			}
+		default:
+			if value != nil {
 				return true
 			}
 		}

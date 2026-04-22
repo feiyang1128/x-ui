@@ -509,9 +509,10 @@ class TlsStreamSettings extends XrayCommonClass {
         const alpn = typeof this.alpn === 'string'
             ? this.alpn.split(',').map(item => item.trim()).filter(item => item.length > 0)
             : (Array.isArray(this.alpn) ? this.alpn.filter(item => !ObjectUtil.isEmpty(item)) : []);
+        const certificates = TlsStreamSettings.toJsonArray(this.certs).filter(cert => !ObjectUtil.isEmpty(cert));
         return {
             serverName: this.server,
-            certificates: TlsStreamSettings.toJsonArray(this.certs),
+            certificates: certificates.length > 0 ? certificates : undefined,
             alpn: alpn.length > 0 ? alpn : undefined,
         };
     }
@@ -545,14 +546,22 @@ TlsStreamSettings.Cert = class extends XrayCommonClass {
 
     toJson() {
         if (this.useFile) {
+            if (ObjectUtil.isEmpty(this.certFile) || ObjectUtil.isEmpty(this.keyFile)) {
+                return undefined;
+            }
             return {
                 certificateFile: this.certFile,
                 keyFile: this.keyFile,
             };
         } else {
+            const certificate = this.cert.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+            const key = this.key.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+            if (certificate.length === 0 || key.length === 0) {
+                return undefined;
+            }
             return {
-                certificate: this.cert.split('\n'),
-                key: this.key.split('\n'),
+                certificate: certificate,
+                key: key,
             };
         }
     }
