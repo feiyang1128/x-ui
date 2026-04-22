@@ -121,7 +121,7 @@ update() {
 }
 
 uninstall() {
-    confirm "确定要卸载面板吗,xray 也会卸载?" "n"
+    confirm "确定要卸载面板吗，x-ui 面板安装的所有内核和相关文件也会一并卸载?" "n"
     if [[ $? != 0 ]]; then
         if [[ $# == 0 ]]; then
             show_menu
@@ -133,6 +133,14 @@ uninstall() {
     rm /etc/systemd/system/x-ui.service -f
     systemctl daemon-reload
     systemctl reset-failed
+    rm /usr/local/x-ui/bin/xray-* -f
+    rm /usr/local/x-ui/bin/sing-box-* -f
+    rm /usr/local/x-ui/bin/*_config.json -f
+    rm /usr/local/x-ui/bin/config.json -f
+    rm /usr/local/x-ui/bin/geoip.dat -f
+    rm /usr/local/x-ui/bin/geosite.dat -f
+    rm /usr/local/x-ui/bin/hy2-selfsigned.crt -f
+    rm /usr/local/x-ui/bin/hy2-selfsigned.key -f
     rm /etc/x-ui/ -rf
     rm /usr/local/x-ui/ -rf
 
