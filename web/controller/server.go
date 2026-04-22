@@ -37,6 +37,7 @@ func (a *ServerController) initRouter(g *gin.RouterGroup) {
 
 	g.Use(a.checkLogin)
 	g.POST("/status", a.status)
+	g.POST("/installedCores", a.installedCores)
 	g.POST("/getCoreVersion/:core", a.getCoreVersion)
 	g.POST("/installCore/:core/:version", a.installCore)
 }
@@ -61,6 +62,11 @@ func (a *ServerController) status(c *gin.Context) {
 	a.lastGetStatusTime = time.Now()
 
 	jsonObj(c, a.lastStatus, nil)
+}
+
+func (a *ServerController) installedCores(c *gin.Context) {
+	coreTypes := a.serverService.GetInstalledCoreTypes()
+	jsonObj(c, coreTypes, nil)
 }
 
 func (a *ServerController) getCoreVersion(c *gin.Context) {

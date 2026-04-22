@@ -84,6 +84,15 @@ type ServerService struct {
 	xrayService XrayService
 }
 
+func (s *ServerService) GetInstalledCoreTypes() []string {
+	coreTypes := s.xrayService.GetInstalledCoreTypes()
+	result := make([]string, 0, len(coreTypes))
+	for _, coreType := range coreTypes {
+		result = append(result, string(coreType))
+	}
+	return result
+}
+
 func (s *ServerService) GetStatus(lastStatus *Status) *Status {
 	now := time.Now()
 	status := &Status{

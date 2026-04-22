@@ -5,13 +5,13 @@
     {{template "form/inbound"}}
 </a-modal>
 <script>
-    const availableCoreTypes = [
+    const initialCoreTypes = [
         {{- range $index, $coreType := .availableCoreTypes }}
         {{- if $index }},{{ end }}
         { value: '{{ $coreType }}', label: '{{ $coreType }}' }
         {{- end }}
     ];
-    const defaultCoreType = '{{ .defaultCoreType }}';
+    const fallbackCoreTypes = initialCoreTypes.length > 0 ? initialCoreTypes : [{ value: 'xray', label: 'xray' }];
 
     const inModal = {
         title: '',
@@ -31,9 +31,6 @@
                 this.inbound = Inbound.fromJson(inbound.toJson());
             } else {
                 this.inbound = new Inbound();
-            }
-            if (!availableCoreTypes.some(item => item.value === this.inbound.coreType)) {
-                this.inbound.coreType = defaultCoreType;
             }
             if (dbInbound) {
                 this.dbInbound = new DBInbound(dbInbound);
@@ -62,17 +59,6 @@
         SOCKS: Protocols.SOCKS,
         HTTP: Protocols.HTTP,
     };
-    const hasSingboxCore = availableCoreTypes.some(item => item.value === 'sing-box');
-    const protocolOptions = [
-        protocols.VMESS,
-        protocols.VLESS,
-        ...(hasSingboxCore ? [protocols.HYSTERIA2] : []),
-        protocols.TROJAN,
-        protocols.SHADOWSOCKS,
-        protocols.DOKODEMO,
-        protocols.SOCKS,
-        protocols.HTTP,
-    ];
 
     new Vue({
         delimiters: ['[[', ']]'],
@@ -80,10 +66,10 @@
         data: {
             inModal: inModal,
             Protocols: protocols,
-            protocolOptions: protocolOptions,
+            protocolOptions: [],
             SSMethods: SSMethods,
-            coreTypeOptions: availableCoreTypes,
-            visibleCoreTypeOptions: availableCoreTypes.slice(),
+            coreTypeOptions: fallbackCoreTypes.slice(),
+            visibleCoreTypeOptions: fallbackCoreTypes.slice(),
             get inbound() {
                 return inModal.inbound;
             },
@@ -94,7 +80,7 @@
         watch: {
             'inModal.inbound.protocol': {
                 handler(value) {
-                    if (value === Protocols.HYSTERIA2 && hasSingboxCore) {
+                    if (value === Protocols.HYSTERIA2 && this.hasSingboxCore()) {
                         this.inModal.inbound.coreType = 'sing-box';
                         if (ObjectUtil.isEmpty(this.inModal.inbound.stream.tls.server)) {
                             this.inModal.inbound.stream.tls.server = HY2_SELF_SIGNED_SNI;
@@ -109,6 +95,35 @@
             },
         },
         methods: {
+            hasSingboxCore() {
+                return this.coreTypeOptions.some(item => item.value === 'sing-box');
+            },
+            syncProtocolOptions() {
+                this.protocolOptions = [
+                    protocols.VMESS,
+                    protocols.VLESS,
+                    ...(this.hasSingboxCore() ? [protocols.HYSTERIA2] : []),
+                    protocols.TROJAN,
+                    protocols.SHADOWSOCKS,
+                    protocols.DOKODEMO,
+                    protocols.SOCKS,
+                    protocols.HTTP,
+                ];
+                if (!this.protocolOptions.includes(this.inbound.protocol)) {
+                    this.inbound.protocol = this.protocolOptions[0];
+                }
+            },
+            async loadCoreOptions() {
+                const msg = await HttpUtil.post('/server/installedCores');
+                if (!msg.success || !Array.isArray(msg.obj) || msg.obj.length === 0) {
+                    this.syncProtocolOptions();
+                    this.syncVisibleCoreTypeOptions();
+                    return;
+                }
+                this.coreTypeOptions = msg.obj.map(item => ({ value: item, label: item }));
+                this.syncProtocolOptions();
+                this.syncVisibleCoreTypeOptions();
+            },
             streamNetworkChange(oldValue) {
                 if (oldValue === 'kcp') {
                     this.inModal.inbound.tls = false;
@@ -128,7 +143,12 @@
                     this.inbound.coreType = options[0].value;
                 }
             },
-        }
+        },
+        async mounted() {
+            this.syncProtocolOptions();
+            this.syncVisibleCoreTypeOptions();
+            await this.loadCoreOptions();
+        },
     });
 
 </script>
