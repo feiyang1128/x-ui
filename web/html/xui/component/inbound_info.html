@@ -25,9 +25,9 @@
 </template>
 
 <template v-if="inbound.isHysteria">
-    <p>up Mbps: <a-tag color="green">[[ inbound.hysteriaUpMbps ]]</a-tag></p>
-    <p>down Mbps: <a-tag color="green">[[ inbound.hysteriaDownMbps ]]</a-tag></p>
-    <p v-if="inbound.hysteriaObfsType">obfs: <a-tag color="green">[[ inbound.hysteriaObfsType ]]</a-tag></p>
+    <p>上行带宽: <a-tag color="green">[[ inbound.hysteriaUpMbps ]] Mbps</a-tag></p>
+    <p>下行带宽: <a-tag color="green">[[ inbound.hysteriaDownMbps ]] Mbps</a-tag></p>
+    <p v-if="inbound.hysteriaObfsType">混淆: <a-tag color="green">[[ inbound.hysteriaObfsType ]]</a-tag></p>
 </template>
 
 <template v-if="inbound.tls || inbound.xtls">

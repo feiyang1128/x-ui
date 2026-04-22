@@ -1,21 +1,28 @@
 {{define "form/streamHysteria"}}
+<a-alert
+        type="info"
+        show-icon
+        style="margin-bottom: 16px"
+        message="Hysteria2 带宽说明"
+        description="上行/下行带宽会写入服务端 sing-box 入站配置，用于 Hysteria2 拥塞控制。按照官方 URI 规范，分享链接不会携带这些带宽参数，客户端如需限制带宽仍需在客户端单独设置。">
+</a-alert>
 <a-form layout="inline">
-    <a-form-item label="up Mbps">
+    <a-form-item label="上行带宽">
         <a-input-number v-model="inbound.stream.hysteria.upMbps" :min="1"></a-input-number>
     </a-form-item>
-    <a-form-item label="down Mbps">
+    <a-form-item label="下行带宽">
         <a-input-number v-model="inbound.stream.hysteria.downMbps" :min="1"></a-input-number>
     </a-form-item>
-    <a-form-item label="ignore client bandwidth">
+    <a-form-item label="忽略客户端带宽设置">
         <a-switch v-model="inbound.stream.hysteria.ignoreClientBandwidth"></a-switch>
     </a-form-item>
-    <a-form-item label="obfs">
+    <a-form-item label="混淆">
         <a-select v-model="inbound.stream.hysteria.obfsType" style="width: 140px;">
-            <a-select-option value="">none</a-select-option>
+            <a-select-option value="">无</a-select-option>
             <a-select-option value="salamander">salamander</a-select-option>
         </a-select>
     </a-form-item>
-    <a-form-item v-if="inbound.stream.hysteria.obfsType" label="obfs password">
+    <a-form-item v-if="inbound.stream.hysteria.obfsType" label="混淆密码">
         <a-input v-model.trim="inbound.stream.hysteria.obfsPassword"></a-input>
     </a-form-item>
 </a-form>

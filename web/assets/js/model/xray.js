@@ -441,12 +441,15 @@ class HysteriaStreamSettings extends XrayCommonClass {
 
     static fromJson(json={}) {
         const obfs = ObjectUtil.isEmpty(json.obfs) ? {} : json.obfs;
+        const ignoreClientBandwidth = json.ignoreClientBandwidth == null
+            ? !!json.ignore_client_bandwidth
+            : !!json.ignoreClientBandwidth;
         return new HysteriaStreamSettings(
             ObjectUtil.isEmpty(json.version) ? 2 : json.version,
             json.auth,
             ObjectUtil.isEmpty(json.up_mbps) ? 100 : json.up_mbps,
             ObjectUtil.isEmpty(json.down_mbps) ? 100 : json.down_mbps,
-            !!json.ignoreClientBandwidth,
+            ignoreClientBandwidth,
             ObjectUtil.isEmpty(obfs.type) ? '' : obfs.type,
             ObjectUtil.isEmpty(obfs.password) ? '' : obfs.password,
         );

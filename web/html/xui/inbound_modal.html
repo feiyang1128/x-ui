@@ -38,6 +38,10 @@
                 this.dbInbound = new DBInbound();
             }
             this.confirm = confirm;
+            if (typeof inboundModalApp !== 'undefined') {
+                inboundModalApp.syncProtocolOptions();
+                inboundModalApp.syncVisibleCoreTypeOptions();
+            }
             this.visible = true;
         },
         close() {
@@ -60,7 +64,7 @@
         HTTP: Protocols.HTTP,
     };
 
-    new Vue({
+    const inboundModalApp = new Vue({
         delimiters: ['[[', ']]'],
         el: '#inbound-modal',
         data: {
@@ -91,6 +95,7 @@
                 immediate: true,
             },
             'inModal.inbound.coreType'() {
+                this.syncProtocolOptions();
                 this.syncVisibleCoreTypeOptions();
             },
         },
@@ -98,11 +103,24 @@
             hasSingboxCore() {
                 return this.coreTypeOptions.some(item => item.value === 'sing-box');
             },
+            ensureCurrentCoreTypeOption() {
+                const currentCoreType = this.inbound.coreType;
+                if (ObjectUtil.isEmpty(currentCoreType)) {
+                    return;
+                }
+                if (!this.coreTypeOptions.some(item => item.value === currentCoreType)) {
+                    this.coreTypeOptions = this.coreTypeOptions.concat([{ value: currentCoreType, label: currentCoreType }]);
+                }
+            },
             syncProtocolOptions() {
+                this.ensureCurrentCoreTypeOption();
+                const shouldShowHysteria2 = this.hasSingboxCore()
+                    || this.inbound.coreType === 'sing-box'
+                    || this.inbound.protocol === protocols.HYSTERIA2;
                 this.protocolOptions = [
                     protocols.VMESS,
                     protocols.VLESS,
-                    ...(this.hasSingboxCore() ? [protocols.HYSTERIA2] : []),
+                    ...(shouldShowHysteria2 ? [protocols.HYSTERIA2] : []),
                     protocols.TROJAN,
                     protocols.SHADOWSOCKS,
                     protocols.DOKODEMO,
@@ -130,6 +148,7 @@
                 }
             },
             syncVisibleCoreTypeOptions() {
+                this.ensureCurrentCoreTypeOption();
                 if (this.inbound.protocol === Protocols.HYSTERIA2) {
                     this.visibleCoreTypeOptions = this.coreTypeOptions.filter(item => item.value === 'sing-box');
                 } else {
