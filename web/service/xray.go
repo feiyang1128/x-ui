@@ -245,9 +245,25 @@ func ensureSingboxInboundTLS(inbound *model.Inbound, inboundConfig map[string]in
 }
 
 func hasSingboxCertificate(tlsObj map[string]interface{}) bool {
-	for _, key := range []string{"certificate_path", "key_path", "certificate", "key"} {
+	for _, key := range []string{"certificate_path", "key_path"} {
 		if value, ok := tlsObj[key].(string); ok && value != "" {
 			return true
+		}
+	}
+	for _, key := range []string{"certificate", "key"} {
+		switch value := tlsObj[key].(type) {
+		case string:
+			if value != "" {
+				return true
+			}
+		case []string:
+			if len(value) > 0 {
+				return true
+			}
+		case []interface{}:
+			if len(value) > 0 {
+				return true
+			}
 		}
 	}
 	return false
