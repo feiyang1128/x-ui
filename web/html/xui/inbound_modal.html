@@ -83,6 +83,7 @@
             protocolOptions: protocolOptions,
             SSMethods: SSMethods,
             coreTypeOptions: availableCoreTypes,
+            visibleCoreTypeOptions: availableCoreTypes.slice(),
             get inbound() {
                 return inModal.inbound;
             },
@@ -99,20 +100,12 @@
                             this.inModal.inbound.stream.tls.server = HY2_SELF_SIGNED_SNI;
                         }
                     }
-                    this.ensureInboundCoreType();
+                    this.syncVisibleCoreTypeOptions();
                 },
                 immediate: true,
             },
             'inModal.inbound.coreType'() {
-                this.ensureInboundCoreType();
-            },
-        },
-        computed: {
-            filteredCoreTypeOptions() {
-                if (this.inbound.protocol === Protocols.HYSTERIA2) {
-                    return this.coreTypeOptions.filter(item => item.value === 'sing-box');
-                }
-                return this.coreTypeOptions;
+                this.syncVisibleCoreTypeOptions();
             },
         },
         methods: {
@@ -121,8 +114,13 @@
                     this.inModal.inbound.tls = false;
                 }
             },
-            ensureInboundCoreType() {
-                const options = this.filteredCoreTypeOptions;
+            syncVisibleCoreTypeOptions() {
+                if (this.inbound.protocol === Protocols.HYSTERIA2) {
+                    this.visibleCoreTypeOptions = this.coreTypeOptions.filter(item => item.value === 'sing-box');
+                } else {
+                    this.visibleCoreTypeOptions = this.coreTypeOptions.slice();
+                }
+                const options = this.visibleCoreTypeOptions;
                 if (options.length === 0) {
                     return;
                 }

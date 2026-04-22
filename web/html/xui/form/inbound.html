@@ -14,8 +14,8 @@
     </a-form-item>
     <a-form-item label="内核">
         <a-select v-model="inbound.coreType" style="width: 140px;">
-            <a-select-option v-for="item in filteredCoreTypeOptions" :key="item.value" :value="item.value">
-                <span v-text="item.label"></span>
+            <a-select-option v-for="item in visibleCoreTypeOptions" :key="item.value" :value="item.value">
+                [[ item.label ]]
             </a-select-option>
         </a-select>
     </a-form-item>
