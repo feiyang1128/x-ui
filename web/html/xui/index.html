@@ -67,31 +67,33 @@
             <transition name="list" appear>
                 <a-row>
                     <a-col :sm="24" :md="12">
-                        <a-card hoverable>
-                            [[ status.xray.name ]] 状态:
-                            <a-tag :color="status.xray.color">[[ status.xray.state ]]</a-tag>
-                            <a-tooltip v-if="status.xray.state === State.Error">
-                                <template slot="title">
-                                    <p v-for="line in status.xray.errorMsg.split('\n')">[[ line ]]</p>
-                                </template>
-                                <a-icon type="question-circle" theme="filled"></a-icon>
-                            </a-tooltip>
-                            <a-tag color="green">[[ status.xray.version ]]</a-tag>
-                            <a-tag color="blue" @click="openSelectCoreVersion(status.xray.type)">切换版本</a-tag>
-                        </a-card>
-                    </a-col>
-                    <a-col :sm="24" :md="12">
-                        <a-card hoverable>
-                            sing-box 状态:
-                            <a-tag :color="status.singbox.color">[[ status.singbox.state ]]</a-tag>
-                            <a-tooltip v-if="status.singbox.state === State.Error">
-                                <template slot="title">
-                                    <p v-for="line in status.singbox.errorMsg.split('\n')">[[ line ]]</p>
-                                </template>
-                                <a-icon type="question-circle" theme="filled"></a-icon>
-                            </a-tooltip>
-                            <a-tag color="green">[[ status.singbox.version ]]</a-tag>
-                            <a-tag color="blue" @click="openSelectCoreVersion(status.singbox.type)">切换版本</a-tag>
+                        <a-card hoverable title="内核状态">
+                            <a-row :gutter="12">
+                                <a-col :span="12">
+                                    [[ status.xray.name ]] 状态:
+                                    <a-tag :color="status.xray.color">[[ status.xray.state ]]</a-tag>
+                                    <a-tooltip v-if="status.xray.state === State.Error">
+                                        <template slot="title">
+                                            <p v-for="line in status.xray.errorMsg.split('\n')">[[ line ]]</p>
+                                        </template>
+                                        <a-icon type="question-circle" theme="filled"></a-icon>
+                                    </a-tooltip>
+                                    <a-tag color="green">[[ status.xray.version ]]</a-tag>
+                                    <a-tag color="blue" @click="openSelectCoreVersion(status.xray.type)">切换版本</a-tag>
+                                </a-col>
+                                <a-col :span="12">
+                                    sing-box 状态:
+                                    <a-tag :color="status.singbox.color">[[ status.singbox.state ]]</a-tag>
+                                    <a-tooltip v-if="status.singbox.state === State.Error">
+                                        <template slot="title">
+                                            <p v-for="line in status.singbox.errorMsg.split('\n')">[[ line ]]</p>
+                                        </template>
+                                        <a-icon type="question-circle" theme="filled"></a-icon>
+                                    </a-tooltip>
+                                    <a-tag color="green">[[ status.singbox.version ]]</a-tag>
+                                    <a-tag color="blue" @click="openSelectCoreVersion(status.singbox.type)">切换版本</a-tag>
+                                </a-col>
+                            </a-row>
                         </a-card>
                     </a-col>
                     <a-col :sm="24" :md="12">

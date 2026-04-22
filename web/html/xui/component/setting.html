@@ -20,7 +20,7 @@
             <template v-else-if="type === 'select'">
                 <a-select :value="value" style="width: 100%" @change="value => $emit('input', value)">
                     <a-select-option v-for="item in selectOptions" :key="item.value" :value="item.value">
-                        [[ item.label ]]
+                        <span v-text="item.label"></span>
                     </a-select-option>
                 </a-select>
             </template>

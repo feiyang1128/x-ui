@@ -68,7 +68,7 @@
                         </a-tab-pane>
                         <a-tab-pane key="3" tab="内核相关设置">
                             <a-list item-layout="horizontal" style="background: white">
-                                <setting-list-item type="select" title="默认内核类型" desc="新建节点时默认使用的内核类型" :select-options="[{value:'xray', label:'xray'}, {value:'sing-box', label:'sing-box'}]" v-model="allSetting.coreType"></setting-list-item>
+                                <setting-list-item type="select" title="默认内核类型" desc="新建节点时默认使用的内核类型" :select-options="coreTypeOptions" v-model="allSetting.coreType"></setting-list-item>
                                 <setting-list-item type="textarea" title="xray 配置模版" desc="以该模版为基础生成最终的 xray 配置文件，重启面板生效" v-model="allSetting.xrayTemplateConfig"></setting-list-item>
                                 <setting-list-item type="textarea" title="sing-box 配置模版" desc="以该模版为基础生成最终的 sing-box 配置文件，重启面板生效" v-model="allSetting.singboxTemplateConfig"></setting-list-item>
                             </a-list>
@@ -95,6 +95,13 @@
 {{template "js" .}}
 {{template "component/setting"}}
 <script>
+    const availableCoreTypes = [
+        {{- range $index, $coreType := .availableCoreTypes }}
+        {{- if $index }},{{ end }}
+        { value: '{{ $coreType }}', label: '{{ $coreType }}' }
+        {{- end }}
+    ];
+    const defaultCoreType = '{{ .defaultCoreType }}';
 
     const app = new Vue({
         delimiters: ['[[', ']]'],
@@ -104,6 +111,7 @@
             spinning: false,
             oldAllSetting: new AllSetting(),
             allSetting: new AllSetting(),
+            coreTypeOptions: availableCoreTypes,
             saveBtnDisable: true,
             user: {},
         },
@@ -118,6 +126,12 @@
                 if (msg.success) {
                     this.oldAllSetting = new AllSetting(msg.obj);
                     this.allSetting = new AllSetting(msg.obj);
+                    if (!this.coreTypeOptions.some(item => item.value === this.oldAllSetting.coreType)) {
+                        this.oldAllSetting.coreType = defaultCoreType;
+                    }
+                    if (!this.coreTypeOptions.some(item => item.value === this.allSetting.coreType)) {
+                        this.allSetting.coreType = defaultCoreType;
+                    }
                     this.saveBtnDisable = true;
                 }
             },

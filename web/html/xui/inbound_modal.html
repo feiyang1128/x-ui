@@ -5,6 +5,13 @@
     {{template "form/inbound"}}
 </a-modal>
 <script>
+    const availableCoreTypes = [
+        {{- range $index, $coreType := .availableCoreTypes }}
+        {{- if $index }},{{ end }}
+        { value: '{{ $coreType }}', label: '{{ $coreType }}' }
+        {{- end }}
+    ];
+    const defaultCoreType = '{{ .defaultCoreType }}';
 
     const inModal = {
         title: '',
@@ -24,6 +31,9 @@
                 this.inbound = Inbound.fromJson(inbound.toJson());
             } else {
                 this.inbound = new Inbound();
+            }
+            if (!availableCoreTypes.some(item => item.value === this.inbound.coreType)) {
+                this.inbound.coreType = defaultCoreType;
             }
             if (dbInbound) {
                 this.dbInbound = new DBInbound(dbInbound);
@@ -52,6 +62,17 @@
         SOCKS: Protocols.SOCKS,
         HTTP: Protocols.HTTP,
     };
+    const hasSingboxCore = availableCoreTypes.some(item => item.value === 'sing-box');
+    const protocolOptions = [
+        protocols.VMESS,
+        protocols.VLESS,
+        ...(hasSingboxCore ? [protocols.HYSTERIA2] : []),
+        protocols.TROJAN,
+        protocols.SHADOWSOCKS,
+        protocols.DOKODEMO,
+        protocols.SOCKS,
+        protocols.HTTP,
+    ];
 
     new Vue({
         delimiters: ['[[', ']]'],
@@ -59,7 +80,9 @@
         data: {
             inModal: inModal,
             Protocols: protocols,
+            protocolOptions: protocolOptions,
             SSMethods: SSMethods,
+            coreTypeOptions: availableCoreTypes,
             get inbound() {
                 return inModal.inbound;
             },
@@ -67,12 +90,46 @@
                 return inModal.dbInbound;
             }
         },
+        watch: {
+            'inModal.inbound.protocol': {
+                handler(value) {
+                    if (value === Protocols.HYSTERIA2 && hasSingboxCore) {
+                        this.inModal.inbound.coreType = 'sing-box';
+                        if (ObjectUtil.isEmpty(this.inModal.inbound.stream.tls.server)) {
+                            this.inModal.inbound.stream.tls.server = HY2_SELF_SIGNED_SNI;
+                        }
+                    }
+                    this.ensureInboundCoreType();
+                },
+                immediate: true,
+            },
+            'inModal.inbound.coreType'() {
+                this.ensureInboundCoreType();
+            },
+        },
+        computed: {
+            filteredCoreTypeOptions() {
+                if (this.inbound.protocol === Protocols.HYSTERIA2) {
+                    return this.coreTypeOptions.filter(item => item.value === 'sing-box');
+                }
+                return this.coreTypeOptions;
+            },
+        },
         methods: {
             streamNetworkChange(oldValue) {
                 if (oldValue === 'kcp') {
                     this.inModal.inbound.tls = false;
                 }
-            }
+            },
+            ensureInboundCoreType() {
+                const options = this.filteredCoreTypeOptions;
+                if (options.length === 0) {
+                    return;
+                }
+                if (!options.some(item => item.value === this.inbound.coreType)) {
+                    this.inbound.coreType = options[0].value;
+                }
+            },
         }
     });
 

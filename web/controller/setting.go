@@ -2,11 +2,13 @@ package controller
 
 import (
 	"errors"
-	"github.com/gin-gonic/gin"
 	"time"
+	"x-ui/core"
 	"x-ui/web/entity"
 	"x-ui/web/service"
 	"x-ui/web/session"
+
+	"github.com/gin-gonic/gin"
 )
 
 type updateUserForm struct {
@@ -20,6 +22,7 @@ type SettingController struct {
 	settingService service.SettingService
 	userService    service.UserService
 	panelService   service.PanelService
+	xrayService    service.XrayService
 }
 
 func NewSettingController(g *gin.RouterGroup) *SettingController {
@@ -52,6 +55,9 @@ func (a *SettingController) updateSetting(c *gin.Context) {
 	if err != nil {
 		jsonMsg(c, "修改设置", err)
 		return
+	}
+	if !a.xrayService.IsCoreInstalled(core.Type(allSetting.CoreType)) {
+		allSetting.CoreType = string(a.xrayService.GetDefaultInstalledCoreType())
 	}
 	err = a.settingService.UpdateAllSetting(allSetting)
 	jsonMsg(c, "修改设置", err)

@@ -11,6 +11,14 @@
 </a-form>
 
 <!-- tls settings -->
+<a-alert
+        v-if="inbound.protocol === Protocols.HYSTERIA2"
+        type="info"
+        show-icon
+        style="margin-bottom: 16px"
+        message="hy2 自签证书说明"
+        description="未填写证书时，面板会自动生成自签证书，默认 SNI 为 www.bing.com，分享链接会自动附带 insecure=1。若你已有正式证书，也可以直接在下方填写。">
+</a-alert>
 <a-form v-if="inbound.tls || inbound.xtls"
         layout="inline">
     <a-form-item label="域名">

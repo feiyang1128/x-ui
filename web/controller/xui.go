@@ -2,10 +2,14 @@ package controller
 
 import (
 	"github.com/gin-gonic/gin"
+	"x-ui/core"
+	"x-ui/web/service"
 )
 
 type XUIController struct {
 	BaseController
+
+	xrayService service.XrayService
 
 	inboundController *InboundController
 	settingController *SettingController
@@ -30,13 +34,29 @@ func (a *XUIController) initRouter(g *gin.RouterGroup) {
 }
 
 func (a *XUIController) index(c *gin.Context) {
-	html(c, "index.html", "系统状态", nil)
+	html(c, "index.html", "Dashboard", nil)
 }
 
 func (a *XUIController) inbounds(c *gin.Context) {
-	html(c, "inbounds.html", "入站列表", nil)
+	html(c, "inbounds.html", "Inbounds", a.getPageData())
 }
 
 func (a *XUIController) setting(c *gin.Context) {
-	html(c, "setting.html", "设置", nil)
+	html(c, "setting.html", "Settings", a.getPageData())
+}
+
+func (a *XUIController) getPageData() gin.H {
+	coreTypes := a.xrayService.GetInstalledCoreTypes()
+	coreTypeStrings := make([]string, 0, len(coreTypes))
+	for _, coreType := range coreTypes {
+		coreTypeStrings = append(coreTypeStrings, string(coreType))
+	}
+	defaultCoreType := string(core.Xray)
+	if len(coreTypes) > 0 {
+		defaultCoreType = string(coreTypes[0])
+	}
+	return gin.H{
+		"availableCoreTypes": coreTypeStrings,
+		"defaultCoreType":    defaultCoreType,
+	}
 }

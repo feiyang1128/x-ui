@@ -1,10 +1,20 @@
 package service
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
+	"math/big"
+	"os"
+	"path/filepath"
 	"sync"
+	"time"
 	"x-ui/core"
 	"x-ui/database/model"
 	"x-ui/logger"
@@ -22,6 +32,12 @@ var (
 		core.Xray:    &atomic.Bool{},
 		core.SingBox: &atomic.Bool{},
 	}
+)
+
+const (
+	hy2SelfSignedServerName = "www.bing.com"
+	hy2SelfSignedCertPath   = "bin/hy2-selfsigned.crt"
+	hy2SelfSignedKeyPath    = "bin/hy2-selfsigned.key"
 )
 
 type CoreStatus struct {
@@ -48,6 +64,32 @@ func (s *XrayService) IsXrayRunning() bool {
 
 func (s *XrayService) IsAnyCoreRunning() bool {
 	return s.IsCoreRunning(core.Xray) || s.IsCoreRunning(core.SingBox)
+}
+
+func (s *XrayService) IsCoreInstalled(coreType core.Type) bool {
+	_, err := os.Stat(core.GetBinaryPath(coreType))
+	return err == nil
+}
+
+func (s *XrayService) GetInstalledCoreTypes() []core.Type {
+	result := make([]core.Type, 0)
+	for _, coreType := range s.GetManagedCoreTypes() {
+		if s.IsCoreInstalled(coreType) {
+			result = append(result, coreType)
+		}
+	}
+	if len(result) == 0 {
+		return []core.Type{core.Xray}
+	}
+	return result
+}
+
+func (s *XrayService) GetDefaultInstalledCoreType() core.Type {
+	coreTypes := s.GetInstalledCoreTypes()
+	if len(coreTypes) == 0 {
+		return core.Xray
+	}
+	return coreTypes[0]
 }
 
 func (s *XrayService) GetCoreName(coreType core.Type) string {
@@ -152,10 +194,120 @@ func (s *XrayService) GetSingboxConfig() (map[string]interface{}, error) {
 		if convErr != nil {
 			return nil, fmt.Errorf("convert inbound %s:%d to sing-box failed: %w", inbound.Remark, inbound.Port, convErr)
 		}
+		if convErr = ensureSingboxInboundTLS(inbound, inboundConfig); convErr != nil {
+			return nil, fmt.Errorf("prepare sing-box inbound %s:%d failed: %w", inbound.Remark, inbound.Port, convErr)
+		}
 		rawInbounds = append(rawInbounds, inboundConfig)
 	}
 	singboxConfig["inbounds"] = rawInbounds
 	return singboxConfig, nil
+}
+
+func ensureSingboxInboundTLS(inbound *model.Inbound, inboundConfig map[string]interface{}) error {
+	if inbound.Protocol != model.Hysteria2 {
+		return nil
+	}
+
+	stream := map[string]interface{}{}
+	if inbound.StreamSettings != "" {
+		if err := json.Unmarshal([]byte(inbound.StreamSettings), &stream); err != nil {
+			return err
+		}
+	}
+
+	tlsObj, _ := inboundConfig["tls"].(map[string]interface{})
+	if tlsObj == nil {
+		tlsObj = map[string]interface{}{"enabled": true}
+		inboundConfig["tls"] = tlsObj
+	}
+
+	tlsSettings, _ := stream["tlsSettings"].(map[string]interface{})
+	serverName, _ := tlsObj["server_name"].(string)
+	if serverName == "" && tlsSettings != nil {
+		serverName, _ = tlsSettings["serverName"].(string)
+	}
+	if serverName == "" {
+		serverName = hy2SelfSignedServerName
+	}
+	tlsObj["server_name"] = serverName
+
+	if hasSingboxCertificate(tlsObj) {
+		return nil
+	}
+
+	certPath, keyPath, err := ensureHy2SelfSignedCertFiles(serverName)
+	if err != nil {
+		return err
+	}
+	tlsObj["certificate_path"] = certPath
+	tlsObj["key_path"] = keyPath
+	return nil
+}
+
+func hasSingboxCertificate(tlsObj map[string]interface{}) bool {
+	for _, key := range []string{"certificate_path", "key_path", "certificate", "key"} {
+		if value, ok := tlsObj[key].(string); ok && value != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func ensureHy2SelfSignedCertFiles(serverName string) (string, string, error) {
+	if _, err := os.Stat(hy2SelfSignedCertPath); err == nil {
+		if _, keyErr := os.Stat(hy2SelfSignedKeyPath); keyErr == nil {
+			return hy2SelfSignedCertPath, hy2SelfSignedKeyPath, nil
+		}
+	}
+
+	if err := os.MkdirAll(filepath.Dir(hy2SelfSignedCertPath), 0o755); err != nil {
+		return "", "", err
+	}
+
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return "", "", err
+	}
+
+	serialLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, err := rand.Int(rand.Reader, serialLimit)
+	if err != nil {
+		return "", "", err
+	}
+
+	template := &x509.Certificate{
+		SerialNumber: serialNumber,
+		Subject: pkix.Name{
+			CommonName:   serverName,
+			Organization: []string{"x-ui hy2 self-signed"},
+		},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().AddDate(10, 0, 0),
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+		DNSNames:              []string{serverName},
+	}
+
+	derBytes, err := x509.CreateCertificate(rand.Reader, template, template, &priv.PublicKey, priv)
+	if err != nil {
+		return "", "", err
+	}
+
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+	keyBytes, err := x509.MarshalECPrivateKey(priv)
+	if err != nil {
+		return "", "", err
+	}
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyBytes})
+
+	if err = os.WriteFile(hy2SelfSignedCertPath, certPEM, 0o644); err != nil {
+		return "", "", err
+	}
+	if err = os.WriteFile(hy2SelfSignedKeyPath, keyPEM, 0o600); err != nil {
+		return "", "", err
+	}
+	return hy2SelfSignedCertPath, hy2SelfSignedKeyPath, nil
 }
 
 func (s *XrayService) buildRuntimeConfig(coreType core.Type) ([]byte, int, error) {

@@ -45,6 +45,7 @@ const FLOW_CONTROL = {
     ORIGIN: "xtls-rprx-origin",
     DIRECT: "xtls-rprx-direct",
 };
+const HY2_SELF_SIGNED_SNI = 'www.bing.com';
 
 Object.freeze(Protocols);
 Object.freeze(VmessMethods);
@@ -673,6 +674,9 @@ class Inbound extends XrayCommonClass {
         if (protocol === Protocols.HYSTERIA2) {
             this.stream.network = 'hysteria';
             this.tls = true;
+            if (ObjectUtil.isEmpty(this.stream.tls.server)) {
+                this.stream.tls.server = HY2_SELF_SIGNED_SNI;
+            }
         }
     }
 
@@ -1115,6 +1119,10 @@ class Inbound extends XrayCommonClass {
         const serverName = this.stream.tls.server;
         if (!ObjectUtil.isEmpty(serverName)) {
             url.searchParams.set("sni", serverName);
+        }
+        const cert = this.stream.tls.certs && this.stream.tls.certs.length > 0 ? this.stream.tls.certs[0] : null;
+        if (serverName === HY2_SELF_SIGNED_SNI && (ObjectUtil.isEmpty(cert) || (ObjectUtil.isEmpty(cert.certFile) && ObjectUtil.isEmpty(cert.cert) && ObjectUtil.isEmpty(cert.keyFile) && ObjectUtil.isEmpty(cert.key)))) {
+            url.searchParams.set("insecure", 1);
         }
         url.hash = encodeURIComponent(remark);
         return url.toString();

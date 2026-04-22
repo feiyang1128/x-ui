@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"x-ui/core"
@@ -71,12 +72,22 @@ func (a *InboundController) addInbound(c *gin.Context) {
 	user := session.GetLoginUser(c)
 	inbound.UserId = user.Id
 	inbound.Enable = true
+	defaultCoreType := string(a.xrayService.GetDefaultInstalledCoreType())
 	if inbound.CoreType == "" {
 		defaultCoreType, getErr := a.settingService.GetCoreType()
 		if getErr != nil || defaultCoreType == "" {
-			defaultCoreType = string(core.Xray)
+			defaultCoreType = string(a.xrayService.GetDefaultInstalledCoreType())
+		}
+		if !a.xrayService.IsCoreInstalled(core.Type(defaultCoreType)) {
+			defaultCoreType = string(a.xrayService.GetDefaultInstalledCoreType())
 		}
 		inbound.CoreType = defaultCoreType
+	} else if !a.xrayService.IsCoreInstalled(core.Type(inbound.CoreType)) {
+		inbound.CoreType = defaultCoreType
+	}
+	if err = a.normalizeInboundCoreType(inbound); err != nil {
+		jsonMsg(c, "添加", err)
+		return
 	}
 	inbound.Tag = fmt.Sprintf("inbound-%v", inbound.Port)
 	err = a.inboundService.AddInbound(inbound)
@@ -113,15 +124,32 @@ func (a *InboundController) updateInbound(c *gin.Context) {
 	}
 	if inbound.CoreType == "" {
 		oldInbound, getErr := a.inboundService.GetInbound(id)
-		if getErr == nil && oldInbound.CoreType != "" {
+		if getErr == nil && oldInbound.CoreType != "" && a.xrayService.IsCoreInstalled(core.Type(oldInbound.CoreType)) {
 			inbound.CoreType = oldInbound.CoreType
 		} else {
-			inbound.CoreType = string(core.Xray)
+			inbound.CoreType = string(a.xrayService.GetDefaultInstalledCoreType())
 		}
+	} else if !a.xrayService.IsCoreInstalled(core.Type(inbound.CoreType)) {
+		inbound.CoreType = string(a.xrayService.GetDefaultInstalledCoreType())
+	}
+	if err = a.normalizeInboundCoreType(inbound); err != nil {
+		jsonMsg(c, "修改", err)
+		return
 	}
 	err = a.inboundService.UpdateInbound(inbound)
 	jsonMsg(c, "修改", err)
 	if err == nil {
 		a.xrayService.SetToNeedRestart()
 	}
+}
+
+func (a *InboundController) normalizeInboundCoreType(inbound *model.Inbound) error {
+	if inbound.Protocol != model.Hysteria2 {
+		return nil
+	}
+	if !a.xrayService.IsCoreInstalled(core.SingBox) {
+		return errors.New("hysteria2 requires sing-box core, but sing-box is not installed")
+	}
+	inbound.CoreType = string(core.SingBox)
+	return nil
 }
