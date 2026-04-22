@@ -1,7 +1,22 @@
 {{define "form/streamHysteria"}}
 <a-form layout="inline">
-    <a-form-item label="udpIdleTimeout">
-        <a-input-number v-model="inbound.stream.hysteria.udpIdleTimeout" :min="1"></a-input-number>
+    <a-form-item label="up Mbps">
+        <a-input-number v-model="inbound.stream.hysteria.upMbps" :min="1"></a-input-number>
+    </a-form-item>
+    <a-form-item label="down Mbps">
+        <a-input-number v-model="inbound.stream.hysteria.downMbps" :min="1"></a-input-number>
+    </a-form-item>
+    <a-form-item label="ignore client bandwidth">
+        <a-switch v-model="inbound.stream.hysteria.ignoreClientBandwidth"></a-switch>
+    </a-form-item>
+    <a-form-item label="obfs">
+        <a-select v-model="inbound.stream.hysteria.obfsType" style="width: 140px;">
+            <a-select-option value="">none</a-select-option>
+            <a-select-option value="salamander">salamander</a-select-option>
+        </a-select>
+    </a-form-item>
+    <a-form-item v-if="inbound.stream.hysteria.obfsType" label="obfs password">
+        <a-input v-model.trim="inbound.stream.hysteria.obfsPassword"></a-input>
     </a-form-item>
 </a-form>
 {{end}}

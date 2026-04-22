@@ -422,27 +422,53 @@ class GrpcStreamSettings extends XrayCommonClass {
 }
 
 class HysteriaStreamSettings extends XrayCommonClass {
-    constructor(version=2, auth='', udpIdleTimeout=60) {
+    constructor(version=2,
+                auth='',
+                upMbps=100,
+                downMbps=100,
+                ignoreClientBandwidth=false,
+                obfsType='',
+                obfsPassword='') {
         super();
         this.version = version;
         this.auth = auth;
-        this.udpIdleTimeout = udpIdleTimeout;
+        this.upMbps = upMbps;
+        this.downMbps = downMbps;
+        this.ignoreClientBandwidth = ignoreClientBandwidth;
+        this.obfsType = obfsType;
+        this.obfsPassword = obfsPassword;
     }
 
     static fromJson(json={}) {
+        const obfs = ObjectUtil.isEmpty(json.obfs) ? {} : json.obfs;
         return new HysteriaStreamSettings(
             ObjectUtil.isEmpty(json.version) ? 2 : json.version,
             json.auth,
-            ObjectUtil.isEmpty(json.udpIdleTimeout) ? 60 : json.udpIdleTimeout,
+            ObjectUtil.isEmpty(json.up_mbps) ? 100 : json.up_mbps,
+            ObjectUtil.isEmpty(json.down_mbps) ? 100 : json.down_mbps,
+            !!json.ignoreClientBandwidth,
+            ObjectUtil.isEmpty(obfs.type) ? '' : obfs.type,
+            ObjectUtil.isEmpty(obfs.password) ? '' : obfs.password,
         );
     }
 
     toJson() {
-        return {
+        const json = {
             version: this.version,
-            udpIdleTimeout: this.udpIdleTimeout,
             auth: ObjectUtil.isEmpty(this.auth) ? undefined : this.auth,
+            ignoreClientBandwidth: this.ignoreClientBandwidth,
         };
+        if (!this.ignoreClientBandwidth) {
+            json.up_mbps = this.upMbps;
+            json.down_mbps = this.downMbps;
+        }
+        if (!ObjectUtil.isEmpty(this.obfsType) && !ObjectUtil.isEmpty(this.obfsPassword)) {
+            json.obfs = {
+                type: this.obfsType,
+                password: this.obfsPassword,
+            };
+        }
+        return json;
     }
 }
 
@@ -873,8 +899,16 @@ class Inbound extends XrayCommonClass {
         return this.stream.grpc.serviceName;
     }
 
-    get hysteriaUdpIdleTimeout() {
-        return this.stream.hysteria.udpIdleTimeout;
+    get hysteriaUpMbps() {
+        return this.stream.hysteria.upMbps;
+    }
+
+    get hysteriaDownMbps() {
+        return this.stream.hysteria.downMbps;
+    }
+
+    get hysteriaObfsType() {
+        return this.stream.hysteria.obfsType;
     }
 
     canEnableTls() {
@@ -1123,6 +1157,10 @@ class Inbound extends XrayCommonClass {
         const cert = this.stream.tls.certs && this.stream.tls.certs.length > 0 ? this.stream.tls.certs[0] : null;
         if (serverName === HY2_SELF_SIGNED_SNI && (ObjectUtil.isEmpty(cert) || (ObjectUtil.isEmpty(cert.certFile) && ObjectUtil.isEmpty(cert.cert) && ObjectUtil.isEmpty(cert.keyFile) && ObjectUtil.isEmpty(cert.key)))) {
             url.searchParams.set("insecure", 1);
+        }
+        if (!ObjectUtil.isEmpty(this.stream.hysteria.obfsType) && !ObjectUtil.isEmpty(this.stream.hysteria.obfsPassword)) {
+            url.searchParams.set("obfs", this.stream.hysteria.obfsType);
+            url.searchParams.set("obfs-password", this.stream.hysteria.obfsPassword);
         }
         url.hash = encodeURIComponent(remark);
         return url.toString();

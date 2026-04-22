@@ -153,9 +153,10 @@ func (i *Inbound) GenSingboxInboundConfig() (map[string]interface{}, error) {
 		if auth == "" {
 			auth = firstClientString(settings, "clients", "auth")
 		}
-		if auth != "" {
-			inbound["users"] = []map[string]interface{}{{"password": auth}}
+		if auth == "" {
+			return nil, errors.New("hysteria2 auth is required")
 		}
+		inbound["users"] = []map[string]interface{}{{"password": auth}}
 	default:
 		return nil, errors.New("current inbound protocol is not supported by sing-box converter")
 	}
@@ -243,9 +244,28 @@ func applySingboxTransport(inbound map[string]interface{}, stream map[string]int
 		return nil
 	case "hysteria":
 		hysteriaSettings, _ := stream["hysteriaSettings"].(map[string]interface{})
-		copyOptionalValue(inbound, hysteriaSettings, "up_mbps", "up_mbps")
-		copyOptionalValue(inbound, hysteriaSettings, "down_mbps", "down_mbps")
-		copyOptionalValue(inbound, hysteriaSettings, "ignore_client_bandwidth", "ignoreClientBandwidth")
+		ignoreClientBandwidth, _ := hysteriaSettings["ignoreClientBandwidth"].(bool)
+		inbound["ignore_client_bandwidth"] = ignoreClientBandwidth
+		if !ignoreClientBandwidth {
+			copyOptionalValue(inbound, hysteriaSettings, "up_mbps", "up_mbps")
+			copyOptionalValue(inbound, hysteriaSettings, "down_mbps", "down_mbps")
+			if _, ok := inbound["up_mbps"]; !ok {
+				inbound["up_mbps"] = 100
+			}
+			if _, ok := inbound["down_mbps"]; !ok {
+				inbound["down_mbps"] = 100
+			}
+		}
+		if obfs, ok := hysteriaSettings["obfs"].(map[string]interface{}); ok {
+			obfsType := firstString(obfs, "type")
+			obfsPassword := firstString(obfs, "password")
+			if obfsType != "" && obfsPassword != "" {
+				inbound["obfs"] = map[string]interface{}{
+					"type":     obfsType,
+					"password": obfsPassword,
+				}
+			}
+		}
 		return nil
 	default:
 		return fmt.Errorf("stream network %q is not supported by sing-box converter", network)

@@ -25,7 +25,9 @@
 </template>
 
 <template v-if="inbound.isHysteria">
-    <p>udpIdleTimeout: <a-tag color="green">[[ inbound.hysteriaUdpIdleTimeout ]]</a-tag></p>
+    <p>up Mbps: <a-tag color="green">[[ inbound.hysteriaUpMbps ]]</a-tag></p>
+    <p>down Mbps: <a-tag color="green">[[ inbound.hysteriaDownMbps ]]</a-tag></p>
+    <p v-if="inbound.hysteriaObfsType">obfs: <a-tag color="green">[[ inbound.hysteriaObfsType ]]</a-tag></p>
 </template>
 
 <template v-if="inbound.tls || inbound.xtls">
